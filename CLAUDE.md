@@ -10,12 +10,16 @@
 
 ## Dónde está cada cosa
 
-- **`Discovery.md`** — todo lo relevado: hallazgos, evidencia cuantitativa, candidatos de automatización, preguntas pendientes, datos sensibles. Se edita en el lugar, no se versiona.
-- **`Plan.md`** — alcance vigente, orden de construcción del MVP, supuesto tecnológico preliminar, backlog priorizado, roadmap por etapas.
-- **`Decisions.md`** — historial de decisiones, append-only. Consultar antes de asumir que algo "quedó abierto" — puede que ya se haya decidido acá.
-- **`Architecture.md`** — creado 16/09/2026, tras aviso explícito de madurez (I.4). Cubre Cliente 360 y Bandeja de Autorización (modo lectura); Hub Omnicanal solo como esqueleto preliminar. Contiene el contrato técnico completo de SAP Service Layer ya validado (sesión, esquema de `BusinessPartners`/`Orders`/`Invoices`, fórmula propuesta de crédito disponible) y la lista de puntos abiertos, con el mecanismo de escritura a SAP marcado como bloqueante único.
-- **Demo HTML** (`Pontyn_CC_MVP_Maqueta_Demo.html`) — maqueta interactiva de validación de requerimientos. Se sigue ajustando versión a versión a medida que el descubrimiento avanza; no es el producto final.
-- **Checklist de datos y accesos** (`Pontyn_CC_Checklist_Datos_y_Accesos.md`) — qué falta pedir a Germán/Stefano/Karen para empezar a construir, organizado por módulo y prioridad.
+Toda la documentación de fondo vive en `docs/` (movida desde la raíz el 17/09/2026 para dejar la raíz libre para el código). `CLAUDE.md` queda en la raíz.
+
+- **`docs/Discovery.md`** — todo lo relevado: hallazgos, evidencia cuantitativa, candidatos de automatización, preguntas pendientes, datos sensibles. Se edita en el lugar, no se versiona.
+- **`docs/Plan.md`** — alcance vigente, orden de construcción del MVP, supuesto tecnológico preliminar, backlog priorizado, roadmap por etapas.
+- **`docs/Decisions.md`** — historial de decisiones, append-only. Consultar antes de asumir que algo "quedó abierto" — puede que ya se haya decidido acá.
+- **`docs/Architecture.md`** — creado 16/09/2026, tras aviso explícito de madurez (I.4). Cubre Cliente 360 y Bandeja de Autorización (modo lectura); Hub Omnicanal solo como esqueleto preliminar. Contiene el contrato técnico completo de SAP Service Layer ya validado (sesión, esquema de `BusinessPartners`/`Orders`/`Invoices`, fórmula propuesta de crédito disponible) y la lista de puntos abiertos, con el mecanismo de escritura a SAP marcado como bloqueante único.
+- **`docs/Pontyn_CC_Handoff_ClaudeCode.md`** — texto de handoff original pegado al arrancar las dos sesiones de Claude Code (backend/frontend); snapshot histórico, ya incorporado a este `CLAUDE.md` y a `docs/Architecture.md`.
+- **Fixtures y colección Postman** (`tests/fixtures/pontyn_cc_sap_fixtures.json`, `docs/Pontyn_CC_SAP_ServiceLayer_v6.postman_collection.json`) — viven en el repo backend (`cc-platform-api`), no en este; usar como referencia para tests y para el cliente de `shared/sap_gateway.py` desde el lado backend.
+- **Demo HTML** (`Pontyn_CC_MVP_Maqueta_Demo.html`) — maqueta interactiva de validación de requerimientos. Se sigue ajustando versión a versión a medida que el descubrimiento avanza; no es el producto final. **`TO VERIFY`: no está presente en este repo, confirmar con Líber si vive en otro lado.**
+- **Checklist de datos y accesos** (`Pontyn_CC_Checklist_Datos_y_Accesos.md`) — qué falta pedir a Germán/Stefano/Karen para empezar a construir, organizado por módulo y prioridad. **`TO VERIFY`: no está presente en este repo, confirmar con Líber si vive en otro lado.**
 
 ## Personas clave
 
