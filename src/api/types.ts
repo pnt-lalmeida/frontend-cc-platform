@@ -99,3 +99,14 @@ export interface ChequesResumen {
   cantidad_cheques: number;
   promedio_plazo_dias: number | null;
 }
+
+export interface CandidatosResponse {
+  candidatos: CandidatoBandeja[];
+}
+
+export interface DecisionRequest {
+  cardCode: string;
+  docNum: number;
+  decision: "approved" | "rejected";
+  motivo?: string;
+}
