@@ -65,4 +65,63 @@ describe("useClienteSearch", () => {
     expect(buscar).not.toHaveBeenCalled();
     expect(result.current.resultados).toEqual([]);
   });
+
+  it("descarta respuesta obsoleta si una busqueda mas reciente resuelve primero", async () => {
+    // Crear promesas controlables para simular latencias diferentes
+    let resolve1: (value: ClienteBusqueda[]) => void;
+    let resolve2: (value: ClienteBusqueda[]) => void;
+
+    const promise1 = new Promise<ClienteBusqueda[]>((r) => {
+      resolve1 = r;
+    });
+    const promise2 = new Promise<ClienteBusqueda[]>((r) => {
+      resolve2 = r;
+    });
+
+    const buscar = vi.fn();
+    buscar.mockReturnValueOnce(promise1); // Primera busqueda: "me"
+    buscar.mockReturnValueOnce(promise2); // Segunda busqueda: "mercado"
+
+    const { result } = renderHook(() => useClienteSearch(buscar));
+
+    // Primera busqueda: "me"
+    act(() => {
+      result.current.setQuery("me");
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(buscar).toHaveBeenCalledWith("me");
+    expect(result.current.loading).toBe(true);
+
+    // Segunda busqueda: "mercado" antes de que resuelva la primera
+    act(() => {
+      result.current.setQuery("mercado");
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(buscar).toHaveBeenCalledWith("mercado");
+
+    // Resolver la SEGUNDA busqueda primero (más reciente)
+    const datosRecientes = [
+      { id: "2", name: "Mercado S.A." },
+    ] as ClienteBusqueda[];
+    await act(async () => {
+      resolve2!(datosRecientes);
+      await Promise.resolve();
+    });
+    expect(result.current.resultados).toEqual(datosRecientes);
+
+    // Resolver la PRIMERA busqueda después (obsoleta)
+    const datosAntiguos = [{ id: "1", name: "Me Shop" }] as ClienteBusqueda[];
+    await act(async () => {
+      resolve1!(datosAntiguos);
+      await Promise.resolve();
+    });
+
+    // Verificar que resultados NO fue sobrescrito con los datos antiguos
+    expect(result.current.resultados).toEqual(datosRecientes);
+    expect(result.current.loading).toBe(false);
+  });
 });
