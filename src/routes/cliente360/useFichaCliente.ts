@@ -31,14 +31,15 @@ export function useFichaCliente(cardCode: string | null): EstadoFicha {
 
     let cancelado = false;
     setEstado((previo) => ({ ...previo, loading: true, error: null }));
+    const cardCodeCodificado = encodeURIComponent(cardCode);
 
     async function cargar() {
       try {
         const token = await getAccessToken();
         const [ficha, facturasResponse, pedidosResponse] = await Promise.all([
-          apiFetch<FichaCliente>(`/api/clientes/${cardCode}`, { token }),
-          apiFetch<FacturasResponse>(`/api/clientes/${cardCode}/facturas`, { token }),
-          apiFetch<PedidosResponse>(`/api/clientes/${cardCode}/pedidos`, { token }),
+          apiFetch<FichaCliente>(`/api/clientes/${cardCodeCodificado}`, { token }),
+          apiFetch<FacturasResponse>(`/api/clientes/${cardCodeCodificado}/facturas`, { token }),
+          apiFetch<PedidosResponse>(`/api/clientes/${cardCodeCodificado}/pedidos`, { token }),
         ]);
         if (cancelado) return;
         setEstado({

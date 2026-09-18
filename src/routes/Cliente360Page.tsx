@@ -6,6 +6,7 @@ import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
 import { formatDate, formatMoney } from "../design/format";
 import { facturaVencida } from "./cliente360/facturas";
+import { traducirEstadoPedido } from "./cliente360/pedidos";
 import { construirResumenRiesgo } from "./cliente360/riesgo";
 import { useClienteSearch } from "./cliente360/useClienteSearch";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
@@ -54,7 +55,7 @@ function construirColumnasPedidos(moneda: string | null): TableColumn<Pedido>[] 
     {
       key: "document_status",
       header: "Estado",
-      render: (p) => <StatusTag variant="neutral">{p.document_status ?? "—"}</StatusTag>,
+      render: (p) => <StatusTag variant="neutral">{traducirEstadoPedido(p.document_status)}</StatusTag>,
     },
   ];
 }
@@ -75,7 +76,13 @@ export function Cliente360Page() {
     [getAccessToken]
   );
 
-  const { query, setQuery, resultados, loading: buscando } = useClienteSearch(buscar);
+  const {
+    query,
+    setQuery,
+    resultados,
+    loading: buscando,
+    error: errorBusqueda,
+  } = useClienteSearch(buscar);
   const { ficha, facturas, pedidos, loading: cargandoFicha, error } = useFichaCliente(cardCodeSeleccionado);
 
   const cuentas = ficha ? [ficha, ...ficha.cuentas_relacionadas] : [];
@@ -141,6 +148,7 @@ export function Cliente360Page() {
           </ul>
         )}
         {buscando && <p style={{ fontSize: 12.5, color: "var(--color-muted)" }}>Buscando...</p>}
+        {errorBusqueda && <p style={{ color: "var(--color-risk)" }}>{errorBusqueda}</p>}
       </div>
 
       {error && <p style={{ color: "var(--color-risk)" }}>{error}</p>}
@@ -185,7 +193,7 @@ export function Cliente360Page() {
           </p>
           <p>Saldo cta. cte.: {formatMoney(ficha.current_account_balance, ficha.moneda)}</p>
           <p>Saldo pedidos abiertos: {formatMoney(ficha.open_orders_balance, ficha.moneda)}</p>
-          {ficha.dias_tolerancia_cc && <p>Días de tolerancia: {ficha.dias_tolerancia_cc}</p>}
+          {ficha.dias_tolerancia_cc != null && <p>Días de tolerancia: {ficha.dias_tolerancia_cc}</p>}
 
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, marginTop: 24 }}>Facturas</h2>
           {facturas.length === 0 ? (

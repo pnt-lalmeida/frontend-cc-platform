@@ -127,4 +127,20 @@ describe("useClienteSearch", () => {
     expect(result.current.resultados).toEqual(datosRecientes);
     expect(result.current.loading).toBe(false);
   });
+
+  it("expone un error cuando buscar rechaza, sin lanzar una excepcion no manejada", async () => {
+    const buscar = vi.fn().mockRejectedValue(new Error("fallo de red"));
+    const { result } = renderHook(() => useClienteSearch(buscar));
+
+    act(() => {
+      result.current.setQuery("mer");
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(result.current.error).toBe("No se pudo buscar clientes.");
+    expect(result.current.resultados).toEqual([]);
+  });
 });

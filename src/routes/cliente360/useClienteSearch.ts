@@ -8,6 +8,7 @@ export function useClienteSearch(
   const [query, setQuery] = useState("");
   const [resultados, setResultados] = useState<ClienteBusqueda[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ultimaConsultaRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -15,16 +16,24 @@ export function useClienteSearch(
       ultimaConsultaRef.current = null;
       setResultados([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
     setLoading(true);
+    setError(null);
     const timeoutId = setTimeout(() => {
       ultimaConsultaRef.current = query;
       buscar(query)
         .then((datos) => {
           if (ultimaConsultaRef.current === query) {
             setResultados(datos);
+          }
+        })
+        .catch(() => {
+          if (ultimaConsultaRef.current === query) {
+            setResultados([]);
+            setError("No se pudo buscar clientes.");
           }
         })
         .finally(() => {
@@ -37,5 +46,5 @@ export function useClienteSearch(
     return () => clearTimeout(timeoutId);
   }, [query, buscar, delayMs]);
 
-  return { query, setQuery, resultados, loading };
+  return { query, setQuery, resultados, loading, error };
 }
