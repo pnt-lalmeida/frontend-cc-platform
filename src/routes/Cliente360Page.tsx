@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
-import type { ClienteBusqueda, ClientesResponse, Factura, Pedido } from "../api/types";
+import type { ClienteBusqueda, ClientesResponse, EstadoCuentaFila, Factura, Pedido } from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
@@ -9,7 +9,10 @@ import { facturaVencida } from "./cliente360/facturas";
 import { traducirEstadoPedido } from "./cliente360/pedidos";
 import { construirResumenRiesgo } from "./cliente360/riesgo";
 import { useClienteSearch } from "./cliente360/useClienteSearch";
+import { useEstadoCuenta } from "./cliente360/useEstadoCuenta";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
+
+type Pestaña = "facturas" | "pedidos" | "estado-cuenta";
 
 function construirColumnasFacturas(moneda: string | null): TableColumn<Factura>[] {
   return [
@@ -60,9 +63,41 @@ function construirColumnasPedidos(moneda: string | null): TableColumn<Pedido>[] 
   ];
 }
 
+const COLUMNAS_ESTADO_CUENTA: TableColumn<EstadoCuentaFila>[] = [
+  { key: "fecha", header: "Fecha", render: (f) => formatDate(f.fecha) },
+  { key: "vencimiento", header: "Vencimiento", render: (f) => formatDate(f.vencimiento) },
+  { key: "tipo", header: "Tipo", render: (f) => f.tipo ?? "—" },
+  { key: "folio", header: "N° Doc", render: (f) => f.folio ?? "—" },
+  { key: "moneda", header: "Moneda", render: (f) => f.moneda ?? "—" },
+  {
+    key: "saldo",
+    header: "Importe",
+    align: "right",
+    render: (f) => formatMoney(f.saldo, f.moneda),
+  },
+  {
+    key: "saldo_corrido",
+    header: "Saldo corrido",
+    align: "right",
+    render: (f) => formatMoney(f.saldo_corrido, f.moneda),
+  },
+  { key: "vendedor", header: "Vendedor", render: (f) => f.vendedor ?? "—" },
+  {
+    key: "estado",
+    header: "Estado",
+    render: (f) =>
+      f.vencimiento && facturaVencida(f.vencimiento) ? (
+        <StatusTag variant="risk">Vencido</StatusTag>
+      ) : (
+        <StatusTag variant="ok">Al día</StatusTag>
+      ),
+  },
+];
+
 export function Cliente360Page() {
   const getAccessToken = useAccessToken();
   const [cardCodeSeleccionado, setCardCodeSeleccionado] = useState<string | null>(null);
+  const [pestañaActiva, setPestañaActiva] = useState<Pestaña>("facturas");
 
   const buscar = useCallback(
     async (query: string): Promise<ClienteBusqueda[]> => {
@@ -83,7 +118,19 @@ export function Cliente360Page() {
     loading: buscando,
     error: errorBusqueda,
   } = useClienteSearch(buscar);
-  const { ficha, facturas, pedidos, loading: cargandoFicha, error } = useFichaCliente(cardCodeSeleccionado);
+  const {
+    ficha,
+    facturas,
+    pedidos,
+    cheques,
+    loading: cargandoFicha,
+    error,
+  } = useFichaCliente(cardCodeSeleccionado);
+  const {
+    filas: estadoCuenta,
+    loading: cargandoEstadoCuenta,
+    error: errorEstadoCuenta,
+  } = useEstadoCuenta(cardCodeSeleccionado);
 
   const cuentas = ficha ? [ficha, ...ficha.cuentas_relacionadas] : [];
 
@@ -130,6 +177,7 @@ export function Cliente360Page() {
                   onClick={() => {
                     setCardCodeSeleccionado(cliente.card_code);
                     setQuery("");
+                    setPestañaActiva("facturas");
                   }}
                   style={{
                     display: "block",
@@ -180,12 +228,22 @@ export function Cliente360Page() {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {construirResumenRiesgo(ficha).map((tag) => (
               <StatusTag key={tag.key} variant={tag.variant}>
                 {tag.label}
               </StatusTag>
             ))}
+            {cheques && cheques.cantidad_cheques > 0 && (
+              <StatusTag variant="neutral">
+                Cheques pendientes: {formatMoney(ficha.cheques_pendientes, ficha.moneda)} (
+                {cheques.cantidad_cheques}
+                {cheques.promedio_plazo_dias != null
+                  ? `, ${Math.round(cheques.promedio_plazo_dias)} días prom.`
+                  : ""}
+                )
+              </StatusTag>
+            )}
           </div>
 
           <p>
@@ -195,19 +253,69 @@ export function Cliente360Page() {
           <p>Saldo pedidos abiertos: {formatMoney(ficha.open_orders_balance, ficha.moneda)}</p>
           {ficha.dias_tolerancia_cc != null && <p>Días de tolerancia: {ficha.dias_tolerancia_cc}</p>}
 
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, marginTop: 24 }}>Facturas</h2>
-          {facturas.length === 0 ? (
-            <p style={{ color: "var(--color-muted)" }}>Sin facturas pendientes.</p>
-          ) : (
-            <Table columns={columnasFacturas} rows={facturas} rowKey={(f) => f.doc_entry} />
-          )}
+          <div style={{ display: "flex", gap: 4, marginTop: 24, borderBottom: "1px solid var(--color-line)" }}>
+            {(
+              [
+                { key: "facturas", label: "Facturas" },
+                { key: "pedidos", label: "Pedidos" },
+                { key: "estado-cuenta", label: "Estado de cuenta" },
+              ] as const
+            ).map((pestaña) => (
+              <button
+                key={pestaña.key}
+                onClick={() => setPestañaActiva(pestaña.key)}
+                style={{
+                  padding: "8px 14px",
+                  border: "none",
+                  borderBottom:
+                    pestañaActiva === pestaña.key
+                      ? "2px solid var(--color-accent)"
+                      : "2px solid transparent",
+                  background: "none",
+                  fontWeight: pestañaActiva === pestaña.key ? 600 : 500,
+                  color: pestañaActiva === pestaña.key ? "var(--color-ink)" : "var(--color-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                {pestaña.label}
+              </button>
+            ))}
+          </div>
 
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, marginTop: 24 }}>Pedidos</h2>
-          {pedidos.length === 0 ? (
-            <p style={{ color: "var(--color-muted)" }}>Sin pedidos registrados.</p>
-          ) : (
-            <Table columns={columnasPedidos} rows={pedidos} rowKey={(p) => p.doc_entry} />
-          )}
+          <div style={{ marginTop: 16 }}>
+            {pestañaActiva === "facturas" &&
+              (facturas.length === 0 ? (
+                <p style={{ color: "var(--color-muted)" }}>Sin facturas pendientes.</p>
+              ) : (
+                <Table columns={columnasFacturas} rows={facturas} rowKey={(f) => f.doc_entry} />
+              ))}
+
+            {pestañaActiva === "pedidos" &&
+              (pedidos.length === 0 ? (
+                <p style={{ color: "var(--color-muted)" }}>Sin pedidos registrados.</p>
+              ) : (
+                <Table columns={columnasPedidos} rows={pedidos} rowKey={(p) => p.doc_entry} />
+              ))}
+
+            {pestañaActiva === "estado-cuenta" && (
+              <>
+                {errorEstadoCuenta && <p style={{ color: "var(--color-risk)" }}>{errorEstadoCuenta}</p>}
+                {cargandoEstadoCuenta && (
+                  <p style={{ color: "var(--color-muted)" }}>Cargando estado de cuenta...</p>
+                )}
+                {!cargandoEstadoCuenta && !errorEstadoCuenta && estadoCuenta.length === 0 && (
+                  <p style={{ color: "var(--color-muted)" }}>Sin movimientos registrados.</p>
+                )}
+                {!cargandoEstadoCuenta && !errorEstadoCuenta && estadoCuenta.length > 0 && (
+                  <Table
+                    columns={COLUMNAS_ESTADO_CUENTA}
+                    rows={estadoCuenta}
+                    rowKey={(f) => `${f.folio}-${f.fecha}-${f.saldo_corrido}`}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

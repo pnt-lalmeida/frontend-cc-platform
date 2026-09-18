@@ -94,3 +94,8 @@ export interface EstadoCuentaFila {
 export interface EstadoCuentaResponse {
   estado_cuenta: EstadoCuentaFila[];
 }
+
+export interface ChequesResumen {
+  cantidad_cheques: number;
+  promedio_plazo_dias: number | null;
+}
