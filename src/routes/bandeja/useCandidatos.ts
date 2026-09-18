@@ -13,7 +13,7 @@ interface EstadoCandidatos {
 export function useCandidatos(): EstadoCandidatos {
   const getAccessToken = useAccessToken();
   const [candidatos, setCandidatos] = useState<CandidatoBandeja[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
 

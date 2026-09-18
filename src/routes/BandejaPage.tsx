@@ -45,7 +45,9 @@ export function BandejaPage() {
   const getAccessToken = useAccessToken();
   const { candidatos, loading, error, recargar } = useCandidatos();
   const [seleccionado, setSeleccionado] = useState<CandidatoBandeja | null>(null);
-  const [opcionAprobar, setOpcionAprobar] = useState<string | null>(null);
+  const [opcionAprobar, setOpcionAprobar] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
+  const [mensajeError, setMensajeError] = useState<string | null>(null);
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
   const postDecision = useCallback(
     async (
@@ -62,14 +64,17 @@ export function BandejaPage() {
     [getAccessToken]
   );
 
-  const { enviando, error: errorDecision, decidir } = useDecision(postDecision);
+  const { enviando, error: errorDecision, decidir, limpiarError } = useDecision(postDecision);
 
   async function aprobar() {
     if (!seleccionado || !opcionAprobar) return;
-    if (seleccionado.doc_entry == null || seleccionado.doc_num == null) return;
+    if (seleccionado.doc_entry == null || seleccionado.doc_num == null || seleccionado.card_code == null) {
+      setMensajeError("Este pedido no tiene los datos necesarios para decidir.");
+      return;
+    }
     const resultado = await decidir({
       docEntry: seleccionado.doc_entry,
-      cardCode: seleccionado.card_code ?? "",
+      cardCode: seleccionado.card_code,
       docNum: seleccionado.doc_num,
       decision: "approved",
       motivo: opcionAprobar,
@@ -77,21 +82,34 @@ export function BandejaPage() {
     if (resultado) {
       setSeleccionado(null);
       setOpcionAprobar(null);
+      setMensajeExito(
+        resultado.sap_status === "ejecutado"
+          ? "Decisión registrada y enviada a SAP."
+          : "Decisión registrada localmente. Todavía no se envió a SAP."
+      );
       recargar();
     }
   }
 
   async function rechazar() {
     if (!seleccionado) return;
-    if (seleccionado.doc_entry == null || seleccionado.doc_num == null) return;
+    if (seleccionado.doc_entry == null || seleccionado.doc_num == null || seleccionado.card_code == null) {
+      setMensajeError("Este pedido no tiene los datos necesarios para decidir.");
+      return;
+    }
     const resultado = await decidir({
       docEntry: seleccionado.doc_entry,
-      cardCode: seleccionado.card_code ?? "",
+      cardCode: seleccionado.card_code,
       docNum: seleccionado.doc_num,
       decision: "rejected",
     });
     if (resultado) {
       setSeleccionado(null);
+      setMensajeExito(
+        resultado.sap_status === "ejecutado"
+          ? "Decisión registrada y enviada a SAP."
+          : "Decisión registrada localmente. Todavía no se envió a SAP."
+      );
       recargar();
     }
   }
@@ -99,6 +117,8 @@ export function BandejaPage() {
   return (
     <div>
       <h1 style={{ fontFamily: "var(--font-display)" }}>Bandeja de autorización</h1>
+
+      {mensajeExito && <p style={{ color: "var(--color-ok)" }}>{mensajeExito}</p>}
 
       {error && <p style={{ color: "var(--color-risk)" }}>{error}</p>}
       {loading && <p style={{ color: "var(--color-muted)" }}>Cargando pedidos...</p>}
@@ -115,6 +135,9 @@ export function BandejaPage() {
           onRowClick={(c) => {
             setSeleccionado(c);
             setOpcionAprobar(null);
+            setMensajeError(null);
+            setMensajeExito(null);
+            limpiarError();
           }}
         />
       )}
@@ -161,6 +184,7 @@ export function BandejaPage() {
             ))}
           </div>
 
+          {mensajeError && <p style={{ color: "var(--color-risk)" }}>{mensajeError}</p>}
           {errorDecision && <p style={{ color: "var(--color-risk)" }}>{errorDecision}</p>}
 
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>

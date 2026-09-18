@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ApiError } from "../../api/client";
 import type { DecisionRequest, DecisionResponse } from "../../api/types";
 
 export const OPCIONES_APROBAR = ["Emitir estado de cuenta", "Estado de cuenta", "Carta"] as const;
@@ -15,6 +16,20 @@ interface EstadoDecision {
   enviando: boolean;
   error: string | null;
   decidir: (params: ParametrosDecision) => Promise<DecisionResponse | null>;
+  limpiarError: () => void;
+}
+
+function mensajeDeError(err: unknown): string {
+  if (
+    err instanceof ApiError &&
+    typeof err.body === "object" &&
+    err.body !== null &&
+    "error" in err.body &&
+    typeof (err.body as { error: unknown }).error === "string"
+  ) {
+    return (err.body as { error: string }).error;
+  }
+  return "No se pudo registrar la decisión. Intentá de nuevo.";
 }
 
 export function useDecision(
@@ -40,12 +55,16 @@ export function useDecision(
       const respuesta = await postDecision(params.docEntry, body);
       setEnviando(false);
       return respuesta;
-    } catch {
+    } catch (err) {
       setEnviando(false);
-      setError("No se pudo registrar la decisión. Intentá de nuevo.");
+      setError(mensajeDeError(err));
       return null;
     }
   }
 
-  return { enviando, error, decidir };
+  function limpiarError() {
+    setError(null);
+  }
+
+  return { enviando, error, decidir, limpiarError };
 }
