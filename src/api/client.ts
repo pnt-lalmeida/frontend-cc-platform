@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://cc-platform-api.azurewebsites.net";
 
 interface ApiFetchOptions {
   token: string;

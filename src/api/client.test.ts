@@ -31,7 +31,7 @@ describe("apiFetch", () => {
     await apiFetch("/api/health", { token: "x" });
 
     const [url] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(url).toContain("/api/health");
+    expect(url).toBe("https://cc-platform-api.azurewebsites.net/api/health");
   });
 
   it("lanza ApiError con status y body cuando la respuesta no es 2xx", async () => {
