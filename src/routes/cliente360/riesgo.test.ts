@@ -21,6 +21,7 @@ function fichaBase(overrides: Partial<FichaCliente> = {}): FichaCliente {
     clasificacion_cc: null,
     dias_tolerancia_cc: null,
     cheques_pendientes: null,
+    condicion_pago: null,
     cuentas_relacionadas: [],
     ...overrides,
   };

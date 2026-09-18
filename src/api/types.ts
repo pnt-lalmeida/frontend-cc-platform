@@ -23,6 +23,7 @@ export interface FichaCliente {
   clasificacion_cc: string | null;
   dias_tolerancia_cc: string | null;
   cheques_pendientes: number | null;
+  condicion_pago: string | null;
   cuentas_relacionadas: FichaCliente[];
 }
 
