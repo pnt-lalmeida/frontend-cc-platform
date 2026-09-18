@@ -6,6 +6,12 @@ export function AppShell() {
   const account = instance.getActiveAccount() ?? accounts[0];
   const nombre = account?.name ?? account?.username ?? "";
 
+  function logout() {
+    instance.logoutPopup().catch((error) => {
+      console.error("Error al cerrar sesión", error);
+    });
+  }
+
   return (
     <div>
       <header
@@ -32,6 +38,20 @@ export function AppShell() {
         </nav>
         <div style={{ flex: 1 }} />
         <div style={{ fontSize: 12.5, color: "var(--color-muted)" }}>{nombre}</div>
+        <button
+          onClick={logout}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            fontSize: 12.5,
+            color: "var(--color-muted)",
+            textDecoration: "underline",
+            cursor: "pointer",
+          }}
+        >
+          Cerrar sesión
+        </button>
       </header>
       <main style={{ padding: 28 }}>
         <Outlet />
