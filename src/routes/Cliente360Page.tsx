@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
 import type { ClienteBusqueda, ClientesResponse, Factura, Pedido } from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
@@ -10,50 +10,54 @@ import { construirResumenRiesgo } from "./cliente360/riesgo";
 import { useClienteSearch } from "./cliente360/useClienteSearch";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
 
-const FACTURA_COLUMNAS: TableColumn<Factura>[] = [
-  { key: "doc_num", header: "N° factura", render: (f) => String(f.doc_num), sortValue: (f) => f.doc_num },
-  { key: "doc_date", header: "Fecha", render: (f) => formatDate(f.doc_date), sortValue: (f) => f.doc_date },
-  {
-    key: "doc_due_date",
-    header: "Vencimiento",
-    render: (f) => formatDate(f.doc_due_date),
-    sortValue: (f) => f.doc_due_date,
-  },
-  {
-    key: "doc_total",
-    header: "Importe",
-    align: "right",
-    render: (f) => formatMoney(f.doc_total),
-    sortValue: (f) => f.doc_total,
-  },
-  {
-    key: "estado",
-    header: "Estado",
-    render: (f) =>
-      facturaVencida(f.doc_due_date) ? (
-        <StatusTag variant="risk">Vencida</StatusTag>
-      ) : (
-        <StatusTag variant="ok">Al día</StatusTag>
-      ),
-  },
-];
+function construirColumnasFacturas(moneda: string | null): TableColumn<Factura>[] {
+  return [
+    { key: "doc_num", header: "N° factura", render: (f) => String(f.doc_num), sortValue: (f) => f.doc_num },
+    { key: "doc_date", header: "Fecha", render: (f) => formatDate(f.doc_date), sortValue: (f) => f.doc_date },
+    {
+      key: "doc_due_date",
+      header: "Vencimiento",
+      render: (f) => formatDate(f.doc_due_date),
+      sortValue: (f) => f.doc_due_date,
+    },
+    {
+      key: "doc_total",
+      header: "Importe",
+      align: "right",
+      render: (f) => formatMoney(f.doc_total, moneda),
+      sortValue: (f) => f.doc_total,
+    },
+    {
+      key: "estado",
+      header: "Estado",
+      render: (f) =>
+        facturaVencida(f.doc_due_date) ? (
+          <StatusTag variant="risk">Vencida</StatusTag>
+        ) : (
+          <StatusTag variant="ok">Al día</StatusTag>
+        ),
+    },
+  ];
+}
 
-const PEDIDO_COLUMNAS: TableColumn<Pedido>[] = [
-  { key: "doc_num", header: "N° pedido", render: (p) => String(p.doc_num), sortValue: (p) => p.doc_num },
-  { key: "doc_date", header: "Fecha", render: (p) => formatDate(p.doc_date), sortValue: (p) => p.doc_date },
-  {
-    key: "doc_total",
-    header: "Importe",
-    align: "right",
-    render: (p) => formatMoney(p.doc_total),
-    sortValue: (p) => p.doc_total,
-  },
-  {
-    key: "document_status",
-    header: "Estado",
-    render: (p) => <StatusTag variant="neutral">{p.document_status ?? "—"}</StatusTag>,
-  },
-];
+function construirColumnasPedidos(moneda: string | null): TableColumn<Pedido>[] {
+  return [
+    { key: "doc_num", header: "N° pedido", render: (p) => String(p.doc_num), sortValue: (p) => p.doc_num },
+    { key: "doc_date", header: "Fecha", render: (p) => formatDate(p.doc_date), sortValue: (p) => p.doc_date },
+    {
+      key: "doc_total",
+      header: "Importe",
+      align: "right",
+      render: (p) => formatMoney(p.doc_total, moneda),
+      sortValue: (p) => p.doc_total,
+    },
+    {
+      key: "document_status",
+      header: "Estado",
+      render: (p) => <StatusTag variant="neutral">{p.document_status ?? "—"}</StatusTag>,
+    },
+  ];
+}
 
 export function Cliente360Page() {
   const getAccessToken = useAccessToken();
@@ -75,6 +79,9 @@ export function Cliente360Page() {
   const { ficha, facturas, pedidos, loading: cargandoFicha, error } = useFichaCliente(cardCodeSeleccionado);
 
   const cuentas = ficha ? [ficha, ...ficha.cuentas_relacionadas] : [];
+
+  const columnasFacturas = useMemo(() => construirColumnasFacturas(ficha?.moneda ?? null), [ficha?.moneda]);
+  const columnasPedidos = useMemo(() => construirColumnasPedidos(ficha?.moneda ?? null), [ficha?.moneda]);
 
   return (
     <div>
@@ -184,14 +191,14 @@ export function Cliente360Page() {
           {facturas.length === 0 ? (
             <p style={{ color: "var(--color-muted)" }}>Sin facturas pendientes.</p>
           ) : (
-            <Table columns={FACTURA_COLUMNAS} rows={facturas} rowKey={(f) => f.doc_entry} />
+            <Table columns={columnasFacturas} rows={facturas} rowKey={(f) => f.doc_entry} />
           )}
 
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 18, marginTop: 24 }}>Pedidos</h2>
           {pedidos.length === 0 ? (
             <p style={{ color: "var(--color-muted)" }}>Sin pedidos registrados.</p>
           ) : (
-            <Table columns={PEDIDO_COLUMNAS} rows={pedidos} rowKey={(p) => p.doc_entry} />
+            <Table columns={columnasPedidos} rows={pedidos} rowKey={(p) => p.doc_entry} />
           )}
         </div>
       )}
