@@ -2,8 +2,9 @@ import { useMsal } from "@azure/msal-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 export function AppShell() {
-  const { accounts } = useMsal();
-  const nombre = accounts[0]?.name ?? accounts[0]?.username ?? "";
+  const { instance, accounts } = useMsal();
+  const account = instance.getActiveAccount() ?? accounts[0];
+  const nombre = account?.name ?? account?.username ?? "";
 
   return (
     <div>

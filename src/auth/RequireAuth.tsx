@@ -6,7 +6,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const { instance } = useMsal();
 
   function login() {
-    instance.loginPopup({ scopes: [apiScope] });
+    instance.loginPopup({ scopes: [apiScope] }).catch((error) => {
+      console.error("Error en el login", error);
+    });
   }
 
   return (
