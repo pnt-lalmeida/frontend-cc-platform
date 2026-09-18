@@ -12,9 +12,10 @@ interface TableProps<T> {
   columns: TableColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
+  onRowClick?: (row: T) => void;
 }
 
-export function Table<T>({ columns, rows, rowKey }: TableProps<T>) {
+export function Table<T>({ columns, rows, rowKey, onRowClick }: TableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<1 | -1>(1);
 
@@ -65,7 +66,11 @@ export function Table<T>({ columns, rows, rowKey }: TableProps<T>) {
       </thead>
       <tbody>
         {sortedRows.map((row) => (
-          <tr key={rowKey(row)}>
+          <tr
+            key={rowKey(row)}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            style={{ cursor: onRowClick ? "pointer" : undefined }}
+          >
             {columns.map((column) => (
               <td
                 key={column.key}
