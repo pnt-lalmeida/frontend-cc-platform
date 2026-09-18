@@ -22,6 +22,7 @@ export interface FichaCliente {
   whatsapp_cc: string | null;
   clasificacion_cc: string | null;
   dias_tolerancia_cc: string | null;
+  cheques_pendientes: number | null;
   cuentas_relacionadas: FichaCliente[];
 }
 
@@ -77,4 +78,19 @@ export interface FacturasResponse {
 
 export interface PedidosResponse {
   pedidos: Pedido[];
+}
+
+export interface EstadoCuentaFila {
+  folio: string | null;
+  tipo: string | null;
+  moneda: string | null;
+  vendedor: string | null;
+  fecha: string | null;
+  vencimiento: string | null;
+  saldo: number | null;
+  saldo_corrido: number;
+}
+
+export interface EstadoCuentaResponse {
+  estado_cuenta: EstadoCuentaFila[];
 }

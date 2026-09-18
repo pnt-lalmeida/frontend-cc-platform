@@ -20,6 +20,7 @@ function fichaBase(overrides: Partial<FichaCliente> = {}): FichaCliente {
     whatsapp_cc: null,
     clasificacion_cc: null,
     dias_tolerancia_cc: null,
+    cheques_pendientes: null,
     cuentas_relacionadas: [],
     ...overrides,
   };
