@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ClienteBusqueda } from "../../api/types";
 import { useClienteSearch } from "./useClienteSearch";
 
 describe("useClienteSearch", () => {
@@ -104,9 +105,9 @@ describe("useClienteSearch", () => {
     expect(buscar).toHaveBeenCalledWith("mercado");
 
     // Resolver la SEGUNDA busqueda primero (más reciente)
-    const datosRecientes = [
-      { id: "2", name: "Mercado S.A." },
-    ] as ClienteBusqueda[];
+    const datosRecientes: ClienteBusqueda[] = [
+      { card_code: "C002", card_name: "Mercado S.A.", numero_sn: "2", moneda: "UYU" },
+    ];
     await act(async () => {
       resolve2!(datosRecientes);
       await Promise.resolve();
@@ -114,7 +115,9 @@ describe("useClienteSearch", () => {
     expect(result.current.resultados).toEqual(datosRecientes);
 
     // Resolver la PRIMERA busqueda después (obsoleta)
-    const datosAntiguos = [{ id: "1", name: "Me Shop" }] as ClienteBusqueda[];
+    const datosAntiguos: ClienteBusqueda[] = [
+      { card_code: "C001", card_name: "Me Shop", numero_sn: "1", moneda: "UYU" },
+    ];
     await act(async () => {
       resolve1!(datosAntiguos);
       await Promise.resolve();
