@@ -398,7 +398,7 @@ export function formatDate(isoDate: string | null | undefined): string {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -- format`
-Expected: PASS (9 tests). If `formatMoney`'s exact separator characters don't match (locale data can vary slightly by Node version), adjust the expected strings to whatever `es-UY` actually produces on this machine — the important properties are: period for thousands, comma for decimals, two decimal places always shown.
+Expected: PASS (6 tests). If `formatMoney`'s exact separator characters don't match (locale data can vary slightly by Node version), adjust the expected strings to whatever `es-UY` actually produces on this machine — the important properties are: period for thousands, comma for decimals, two decimal places always shown.
 
 - [ ] **Step 5: Commit**
 
