@@ -66,3 +66,15 @@ export interface DecisionResponse {
   activity_code: number | null;
   timestamp: string;
 }
+
+export interface ClientesResponse {
+  clientes: ClienteBusqueda[];
+}
+
+export interface FacturasResponse {
+  facturas: Factura[];
+}
+
+export interface PedidosResponse {
+  pedidos: Pedido[];
+}
