@@ -22,6 +22,14 @@ describe("formatMoney", () => {
     expect(formatMoney(null)).toBe("—");
     expect(formatMoney(undefined)).toBe("—");
   });
+
+  it("no adivina un simbolo cuando la moneda es explicitamente null", () => {
+    expect(formatMoney(100, null)).toBe("100,00");
+  });
+
+  it("muestra el codigo de moneda tal cual si no esta en la tabla de simbolos", () => {
+    expect(formatMoney(100, "C4")).toBe("C4 100,00");
+  });
 });
 
 describe("formatDate", () => {

@@ -15,7 +15,10 @@ export function formatMoney(
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-  const simbolo = (moneda && MONEDA_SIMBOLO[moneda]) || "$";
+  if (!moneda) {
+    return numero;
+  }
+  const simbolo = MONEDA_SIMBOLO[moneda] ?? moneda;
   return `${simbolo} ${numero}`;
 }
 
