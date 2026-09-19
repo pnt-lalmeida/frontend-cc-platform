@@ -15,6 +15,7 @@ export function AppShell() {
   return (
     <div>
       <header
+        className="app-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -23,12 +24,15 @@ export function AppShell() {
           height: 64,
           background: "var(--color-surface)",
           borderBottom: "1px solid var(--color-line)",
+          position: "sticky",
+          top: 0,
+          zIndex: 40,
         }}
       >
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 19 }}>
           Pontyn
         </div>
-        <nav style={{ display: "flex", gap: 4 }}>
+        <nav className="app-header-nav" style={{ display: "flex", gap: 4 }}>
           <NavLink to="/cliente-360" style={navLinkStyle}>
             Cliente 360
           </NavLink>
@@ -53,7 +57,7 @@ export function AppShell() {
           Cerrar sesión
         </button>
       </header>
-      <main style={{ padding: 28 }}>
+      <main className="app-main" style={{ padding: 28 }}>
         <Outlet />
       </main>
     </div>

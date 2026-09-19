@@ -27,3 +27,102 @@ body {
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Tabla con scroll horizontal propio en vez de desbordar la pagina - siempre, no solo en mobile. */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.bandeja-back-mobile {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .app-header {
+    padding: 0 14px !important;
+    gap: 14px !important;
+    flex-wrap: wrap;
+    height: auto !important;
+    min-height: 56px;
+  }
+  .app-header-nav {
+    order: 3;
+    width: 100%;
+    padding-bottom: 10px;
+  }
+  .app-header-nav a {
+    padding: 8px 10px !important;
+    font-size: 12.5px !important;
+  }
+  .app-main {
+    padding: 14px !important;
+  }
+
+  /* Bandeja: en mobile se ve una pantalla a la vez - cola o detalle, nunca las dos. */
+  .bandeja-titulo {
+    font-size: 19px !important;
+  }
+  .bandeja-header-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+  .bandeja-filter-row {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .bandeja-filter-row input {
+    width: 100% !important;
+  }
+  .bandeja-sort-hint {
+    display: none;
+  }
+  .bandeja-grid {
+    display: block !important;
+  }
+  .bandeja-grid[data-selected="true"] .bandeja-queue {
+    display: none !important;
+  }
+  .bandeja-grid[data-selected="false"] .bandeja-detail {
+    display: none !important;
+  }
+  .bandeja-detail {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    border-radius: 0 !important;
+    border: none !important;
+  }
+  .bandeja-back-mobile {
+    display: flex !important;
+  }
+
+  /* Cliente 360 */
+  .c360-search-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .c360-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    row-gap: 16px !important;
+  }
+  .c360-stats-grid > div {
+    border-left: none !important;
+    padding-left: 0 !important;
+  }
+  .c360-tabs-row {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+  }
+  .c360-tabs-row button {
+    flex-shrink: 0;
+  }
+  .c360-resumen-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .c360-hint-desktop {
+    display: none;
+  }
+}

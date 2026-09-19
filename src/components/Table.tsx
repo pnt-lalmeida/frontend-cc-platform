@@ -43,6 +43,7 @@ export function Table<T>({ columns, rows, rowKey, onRowClick }: TableProps<T>) {
   }
 
   return (
+    <div className="table-scroll">
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
         <tr>
@@ -57,6 +58,7 @@ export function Table<T>({ columns, rows, rowKey, onRowClick }: TableProps<T>) {
                 padding: "8px 10px",
                 fontSize: 11.5,
                 color: "var(--color-muted)",
+                whiteSpace: "nowrap",
               }}
             >
               {column.header}
@@ -78,6 +80,7 @@ export function Table<T>({ columns, rows, rowKey, onRowClick }: TableProps<T>) {
                   textAlign: column.align ?? "left",
                   borderBottom: "1px solid var(--color-line)",
                   padding: "9px 10px",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {column.render(row)}
@@ -87,5 +90,6 @@ export function Table<T>({ columns, rows, rowKey, onRowClick }: TableProps<T>) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

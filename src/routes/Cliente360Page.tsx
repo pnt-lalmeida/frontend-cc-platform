@@ -215,7 +215,7 @@ export function Cliente360Page() {
       {ficha && (
         <div style={{ marginTop: 24 }}>
           {cuentas.length > 1 && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
               {cuentas.map((cuenta) => (
                 <button
                   key={cuenta.card_code}
@@ -229,12 +229,13 @@ export function Cliente360Page() {
                     fontWeight: cuenta.card_code === ficha.card_code ? 600 : 500,
                     fontSize: 12.5,
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {cuenta.moneda ?? "—"} · {cuenta.card_code}
                 </button>
               ))}
-              <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
+              <span className="c360-hint-desktop" style={{ fontSize: 12, color: "var(--color-muted)" }}>
                 cada cuenta es una moneda separada — nunca se suman entre sí
               </span>
             </div>
@@ -272,7 +273,7 @@ export function Cliente360Page() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>
+            <div className="c360-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>
               <Estadistica etiqueta="Saldo cta. cte." valor={formatMoney(ficha.current_account_balance, ficha.moneda)} />
               <Estadistica
                 etiqueta="Saldo pedidos abiertos"
@@ -320,7 +321,7 @@ export function Cliente360Page() {
             )}
           </div>
 
-          <div style={{ display: "flex", gap: 4, marginTop: 24, borderBottom: "1px solid var(--color-line)" }}>
+          <div className="c360-tabs-row" style={{ display: "flex", gap: 4, marginTop: 24, borderBottom: "1px solid var(--color-line)" }}>
             {(
               [
                 { key: "resumen", label: "Resumen" },
@@ -343,6 +344,7 @@ export function Cliente360Page() {
                   fontWeight: pestañaActiva === pestaña.key ? 600 : 500,
                   color: pestañaActiva === pestaña.key ? "var(--color-ink)" : "var(--color-muted)",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {pestaña.label}
@@ -352,7 +354,7 @@ export function Cliente360Page() {
 
           <div style={{ marginTop: 16 }}>
             {pestañaActiva === "resumen" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
+              <div className="c360-resumen-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24 }}>
                 <div>
                   <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
                     Facturas vencidas

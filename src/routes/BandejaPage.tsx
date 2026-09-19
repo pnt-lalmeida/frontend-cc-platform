@@ -122,9 +122,11 @@ export function BandejaPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", margin: 0 }}>Pedidos pendientes de autorización</h1>
-        <div style={{ display: "flex", gap: 6 }}>
+      <div className="bandeja-header-row" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <h1 className="bandeja-titulo" style={{ fontFamily: "var(--font-display)", margin: 0 }}>
+          Pedidos pendientes de autorización
+        </h1>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button style={chipStyle(filtroEstado === "Todos")} onClick={() => setFiltroEstado("Todos")}>
             Todos · {candidatos.length}
           </button>
@@ -137,7 +139,7 @@ export function BandejaPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div className="bandeja-filter-row" style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <input
           type="text"
           value={busqueda}
@@ -152,8 +154,8 @@ export function BandejaPage() {
             background: "var(--color-surface)",
           }}
         />
-        <div style={{ width: 1, height: 22, background: "var(--color-line)" }} />
-        <div style={{ fontSize: 12.5, color: "var(--color-muted)" }}>
+        <div className="bandeja-sort-hint" style={{ width: 1, height: 22, background: "var(--color-line)" }} />
+        <div className="bandeja-sort-hint" style={{ fontSize: 12.5, color: "var(--color-muted)" }}>
           Ordenado por fecha de pedido, más reciente primero
         </div>
       </div>
@@ -162,8 +164,13 @@ export function BandejaPage() {
       {loading && <p style={{ color: "var(--color-muted)" }}>Cargando pedidos...</p>}
 
       {!loading && !error && (
-        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "520px 1fr", gap: 20, overflow: "hidden" }}>
+        <div
+          className="bandeja-grid"
+          data-selected={seleccionado != null}
+          style={{ flex: 1, display: "grid", gridTemplateColumns: "520px 1fr", gap: 20, overflow: "hidden" }}
+        >
           <div
+            className="bandeja-queue"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-line)",
@@ -205,6 +212,7 @@ export function BandejaPage() {
           </div>
 
           <div
+            className="bandeja-detail"
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-line)",
@@ -239,6 +247,24 @@ export function BandejaPage() {
                   }}
                 >
                   <div>
+                    <button
+                      className="bandeja-back-mobile"
+                      onClick={() => setSeleccionado(null)}
+                      style={{
+                        alignItems: "center",
+                        gap: 6,
+                        border: "none",
+                        background: "none",
+                        padding: 0,
+                        marginBottom: 10,
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: "var(--color-accent)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      ← Volver a la lista
+                    </button>
                     <h2 style={{ fontFamily: "var(--font-display)", fontSize: 19, margin: 0 }}>
                       {seleccionado.card_name ?? "—"}
                     </h2>
@@ -321,14 +347,14 @@ export function BandejaPage() {
                   {mensajeError && <p style={{ color: "var(--color-risk)" }}>{mensajeError}</p>}
                   {errorDecision && <p style={{ color: "var(--color-risk)" }}>{errorDecision}</p>}
 
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <button onClick={aprobar} disabled={enviando || !opcionAprobar}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button style={botonAccionStyle} onClick={aprobar} disabled={enviando || !opcionAprobar}>
                       {enviando ? "Aprobando..." : "Aprobar"}
                     </button>
-                    <button onClick={rechazar} disabled={enviando}>
+                    <button style={botonAccionStyle} onClick={rechazar} disabled={enviando}>
                       {enviando ? "Rechazando..." : "Rechazar"}
                     </button>
-                    <button onClick={() => setSeleccionado(null)} disabled={enviando}>
+                    <button style={botonAccionStyle} onClick={() => setSeleccionado(null)} disabled={enviando}>
                       Cancelar
                     </button>
                   </div>
@@ -341,6 +367,12 @@ export function BandejaPage() {
     </div>
   );
 }
+
+const botonAccionStyle: CSSProperties = {
+  minHeight: 44,
+  padding: "10px 20px",
+  fontSize: 14,
+};
 
 function chipStyle(activo: boolean): CSSProperties {
   return {
