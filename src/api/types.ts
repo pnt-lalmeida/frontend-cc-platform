@@ -24,6 +24,7 @@ export interface FichaCliente {
   dias_tolerancia_cc: string | null;
   cheques_pendientes: number | null;
   condicion_pago: string | null;
+  suspendido: boolean;
   cuentas_relacionadas: FichaCliente[];
 }
 
@@ -67,6 +68,7 @@ export interface DecisionResponse {
   sap_status: "no_ejecutado" | "ejecutado";
   activity_code: number | null;
   timestamp: string;
+  adjunto_blob_path: string | null;
 }
 
 export interface ClientesResponse {
@@ -105,9 +107,25 @@ export interface CandidatosResponse {
   candidatos: CandidatoBandeja[];
 }
 
+export interface AdjuntoRequest {
+  nombreArchivo: string;
+  contenidoBase64: string;
+  contentType: string;
+}
+
 export interface DecisionRequest {
   cardCode: string;
   docNum: number;
   decision: "approved" | "rejected";
   motivo?: string;
+  adjunto?: AdjuntoRequest;
+}
+
+export interface SuspendidoRequest {
+  suspendido: boolean;
+}
+
+export interface SuspendidoResponse {
+  card_code: string;
+  suspendido: boolean;
 }

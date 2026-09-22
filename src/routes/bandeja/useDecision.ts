@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { ApiError } from "../../api/client";
-import type { DecisionRequest, DecisionResponse } from "../../api/types";
+import type { AdjuntoRequest, DecisionRequest, DecisionResponse } from "../../api/types";
 
-export const OPCIONES_APROBAR = ["Emitir estado de cuenta", "Estado de cuenta", "Carta"] as const;
+// docs/superpowers/specs/2026-09-21-bandeja-adjuntos-y-suspendido-design.md S1:
+// conjunto cerrado, texto final. "Estado de cuenta/carta" es la unica opcion
+// que admite adjuntar un archivo (OPCION_CON_ADJUNTO).
+export const OPCIONES_APROBAR = ["Emitir", "Estado de cuenta", "Estado de cuenta/carta", "Etiqueta"] as const;
+export const OPCION_CON_ADJUNTO: (typeof OPCIONES_APROBAR)[number] = "Estado de cuenta/carta";
 
 interface ParametrosDecision {
   docEntry: number;
@@ -10,6 +14,7 @@ interface ParametrosDecision {
   docNum: number;
   decision: "approved" | "rejected";
   motivo?: string;
+  adjunto?: AdjuntoRequest;
 }
 
 interface EstadoDecision {
@@ -46,7 +51,13 @@ export function useDecision(
 
     const body: DecisionRequest =
       params.decision === "approved"
-        ? { cardCode: params.cardCode, docNum: params.docNum, decision: params.decision, motivo: params.motivo }
+        ? {
+            cardCode: params.cardCode,
+            docNum: params.docNum,
+            decision: params.decision,
+            motivo: params.motivo,
+            ...(params.motivo === OPCION_CON_ADJUNTO && params.adjunto ? { adjunto: params.adjunto } : {}),
+          }
         : { cardCode: params.cardCode, docNum: params.docNum, decision: params.decision };
 
     setEnviando(true);

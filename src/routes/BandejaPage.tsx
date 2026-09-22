@@ -1,15 +1,37 @@
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { apiFetch } from "../api/client";
-import type { CandidatoBandeja, DecisionResponse } from "../api/types";
+import type { AdjuntoRequest, CandidatoBandeja, DecisionResponse } from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { formatDate, formatMoney } from "../design/format";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
 import { useCandidatos } from "./bandeja/useCandidatos";
-import { OPCIONES_APROBAR, useDecision } from "./bandeja/useDecision";
+import { OPCIONES_APROBAR, OPCION_CON_ADJUNTO, useDecision } from "./bandeja/useDecision";
 
 type FiltroEstado = "Todos" | "Pendiente" | "Rechazado";
+
+const TAMANO_MAXIMO_ADJUNTO_BYTES = 10 * 1024 * 1024;
+const TIPOS_ADJUNTO_PERMITIDOS = [
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+function archivoABase64(archivo: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => {
+      const resultado = lector.result as string;
+      // data:<mime>;base64,<contenido> - solo interesa la parte de despues de la coma.
+      resolve(resultado.slice(resultado.indexOf(",") + 1));
+    };
+    lector.onerror = () => reject(lector.error);
+    lector.readAsDataURL(archivo);
+  });
+}
 
 export function BandejaPage() {
   const getAccessToken = useAccessToken();
@@ -18,6 +40,8 @@ export function BandejaPage() {
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("Pendiente");
   const [seleccionado, setSeleccionado] = useState<CandidatoBandeja | null>(null);
   const [opcionAprobar, setOpcionAprobar] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
+  const [archivoAdjunto, setArchivoAdjunto] = useState<File | null>(null);
+  const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
@@ -52,9 +76,30 @@ export function BandejaPage() {
   function seleccionar(c: CandidatoBandeja) {
     setSeleccionado(c);
     setOpcionAprobar(null);
+    setArchivoAdjunto(null);
+    setErrorAdjunto(null);
     setMensajeError(null);
     setMensajeExito(null);
     limpiarError();
+  }
+
+  function elegirArchivo(archivo: File | null) {
+    setErrorAdjunto(null);
+    if (!archivo) {
+      setArchivoAdjunto(null);
+      return;
+    }
+    if (archivo.size > TAMANO_MAXIMO_ADJUNTO_BYTES) {
+      setErrorAdjunto("El archivo supera el tamaño máximo permitido (10 MB).");
+      setArchivoAdjunto(null);
+      return;
+    }
+    if (!TIPOS_ADJUNTO_PERMITIDOS.includes(archivo.type)) {
+      setErrorAdjunto("Tipo de archivo no permitido. Usá imagen, PDF o Word.");
+      setArchivoAdjunto(null);
+      return;
+    }
+    setArchivoAdjunto(archivo);
   }
 
   async function aprobar() {
@@ -63,16 +108,26 @@ export function BandejaPage() {
       setMensajeError("Este pedido no tiene los datos necesarios para decidir.");
       return;
     }
+    let adjunto: AdjuntoRequest | undefined;
+    if (opcionAprobar === OPCION_CON_ADJUNTO && archivoAdjunto) {
+      adjunto = {
+        nombreArchivo: archivoAdjunto.name,
+        contenidoBase64: await archivoABase64(archivoAdjunto),
+        contentType: archivoAdjunto.type,
+      };
+    }
     const resultado = await decidir({
       docEntry: seleccionado.doc_entry,
       cardCode: seleccionado.card_code,
       docNum: seleccionado.doc_num,
       decision: "approved",
       motivo: opcionAprobar,
+      adjunto,
     });
     if (resultado) {
       setSeleccionado(null);
       setOpcionAprobar(null);
+      setArchivoAdjunto(null);
       setMensajeExito(
         resultado.sap_status === "ejecutado"
           ? "Decisión registrada y enviada a SAP."
@@ -336,13 +391,38 @@ export function BandejaPage() {
                           name="opcion-aprobar"
                           value={opcion}
                           checked={opcionAprobar === opcion}
-                          onChange={() => setOpcionAprobar(opcion)}
+                          onChange={() => {
+                            setOpcionAprobar(opcion);
+                            setArchivoAdjunto(null);
+                            setErrorAdjunto(null);
+                          }}
                           disabled={enviando}
                         />
                         {opcion}
                       </label>
                     ))}
                   </div>
+
+                  {opcionAprobar === OPCION_CON_ADJUNTO && (
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ fontSize: 12.5, color: "var(--color-muted)", display: "block", marginBottom: 6 }}>
+                        Adjuntar archivo (opcional — imagen, PDF o Word, máx. 10 MB)
+                      </label>
+                      <input
+                        type="file"
+                        accept={TIPOS_ADJUNTO_PERMITIDOS.join(",")}
+                        onChange={(e) => elegirArchivo(e.target.files?.[0] ?? null)}
+                        disabled={enviando}
+                        style={{ fontSize: 13 }}
+                      />
+                      {archivoAdjunto && (
+                        <p style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
+                          {archivoAdjunto.name} ({Math.round(archivoAdjunto.size / 1024)} KB)
+                        </p>
+                      )}
+                      {errorAdjunto && <p style={{ color: "var(--color-risk)", fontSize: 12 }}>{errorAdjunto}</p>}
+                    </div>
+                  )}
 
                   {mensajeError && <p style={{ color: "var(--color-risk)" }}>{mensajeError}</p>}
                   {errorDecision && <p style={{ color: "var(--color-risk)" }}>{errorDecision}</p>}

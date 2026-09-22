@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../api/client";
 import type {
   ChequesResumen,
@@ -10,7 +10,7 @@ import type {
 } from "../../api/types";
 import { useAccessToken } from "../../auth/useAccessToken";
 
-interface EstadoFicha {
+interface DatosFicha {
   ficha: FichaCliente | null;
   facturas: Factura[];
   pedidos: Pedido[];
@@ -19,7 +19,11 @@ interface EstadoFicha {
   error: string | null;
 }
 
-const ESTADO_VACIO: EstadoFicha = {
+interface EstadoFicha extends DatosFicha {
+  recargar: () => void;
+}
+
+const ESTADO_VACIO: DatosFicha = {
   ficha: null,
   facturas: [],
   pedidos: [],
@@ -30,7 +34,10 @@ const ESTADO_VACIO: EstadoFicha = {
 
 export function useFichaCliente(cardCode: string | null): EstadoFicha {
   const getAccessToken = useAccessToken();
-  const [estado, setEstado] = useState<EstadoFicha>(ESTADO_VACIO);
+  const [estado, setEstado] = useState<DatosFicha>(ESTADO_VACIO);
+  const [version, setVersion] = useState(0);
+
+  const recargar = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     if (!cardCode) {
@@ -78,7 +85,7 @@ export function useFichaCliente(cardCode: string | null): EstadoFicha {
     return () => {
       cancelado = true;
     };
-  }, [cardCode, getAccessToken]);
+  }, [cardCode, getAccessToken, version]);
 
-  return estado;
+  return { ...estado, recargar };
 }

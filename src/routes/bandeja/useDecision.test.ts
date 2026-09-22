@@ -18,6 +18,7 @@ describe("useDecision", () => {
   it("al aprobar, manda exactamente cardCode/docNum/decision/motivo", async () => {
     const postDecision = vi.fn().mockResolvedValue({
       doc_entry: 900011, decision: "approved", sap_status: "no_ejecutado", activity_code: null, timestamp: "x",
+      adjunto_blob_path: null,
     });
     const { result } = renderHook(() => useDecision(postDecision));
 
@@ -33,9 +34,50 @@ describe("useDecision", () => {
     });
   });
 
+  it("al aprobar con 'Estado de cuenta/carta' y un adjunto, lo incluye en el body", async () => {
+    const postDecision = vi.fn().mockResolvedValue({
+      doc_entry: 900011, decision: "approved", sap_status: "no_ejecutado", activity_code: null,
+      timestamp: "x", adjunto_blob_path: "900011/x_carta.pdf",
+    });
+    const { result } = renderHook(() => useDecision(postDecision));
+    const adjunto = { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" };
+
+    await act(async () => {
+      await result.current.decidir({
+        docEntry: 900011, cardCode: "C1-90011", docNum: 700011,
+        decision: "approved", motivo: "Estado de cuenta/carta", adjunto,
+      });
+    });
+
+    expect(postDecision).toHaveBeenCalledWith(900011, {
+      cardCode: "C1-90011", docNum: 700011, decision: "approved",
+      motivo: "Estado de cuenta/carta", adjunto,
+    });
+  });
+
+  it("al aprobar con otro motivo, nunca manda adjunto aunque se pase uno", async () => {
+    const postDecision = vi.fn().mockResolvedValue({
+      doc_entry: 900011, decision: "approved", sap_status: "no_ejecutado", activity_code: null,
+      timestamp: "x", adjunto_blob_path: null,
+    });
+    const { result } = renderHook(() => useDecision(postDecision));
+    const adjunto = { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" };
+
+    await act(async () => {
+      await result.current.decidir({
+        docEntry: 900011, cardCode: "C1-90011", docNum: 700011,
+        decision: "approved", motivo: "Estado de cuenta", adjunto,
+      });
+    });
+
+    const [, body] = postDecision.mock.calls[0];
+    expect(body).not.toHaveProperty("adjunto");
+  });
+
   it("al rechazar, nunca manda motivo", async () => {
     const postDecision = vi.fn().mockResolvedValue({
       doc_entry: 900011, decision: "rejected", sap_status: "no_ejecutado", activity_code: null, timestamp: "x",
+      adjunto_blob_path: null,
     });
     const { result } = renderHook(() => useDecision(postDecision));
 
@@ -68,6 +110,7 @@ describe("useDecision", () => {
     await act(async () => {
       resolver({
         doc_entry: 1, decision: "rejected", sap_status: "no_ejecutado", activity_code: null, timestamp: "x",
+        adjunto_blob_path: null,
       });
       await promesaDecidir;
     });

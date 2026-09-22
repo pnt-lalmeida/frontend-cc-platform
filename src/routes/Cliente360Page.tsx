@@ -1,6 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
-import type { ClienteBusqueda, ClientesResponse, EstadoCuentaFila, Factura, Pedido } from "../api/types";
+import type {
+  ClienteBusqueda,
+  ClientesResponse,
+  EstadoCuentaFila,
+  Factura,
+  FichaCliente,
+  Pedido,
+  SuspendidoResponse,
+} from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
@@ -12,6 +20,7 @@ import { construirResumenRiesgo } from "./cliente360/riesgo";
 import { useClienteSearch } from "./cliente360/useClienteSearch";
 import { useEstadoCuenta } from "./cliente360/useEstadoCuenta";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
+import { useSuspendido } from "./cliente360/useSuspendido";
 
 type Pestaña = "resumen" | "facturas" | "pedidos" | "estado-cuenta";
 
@@ -126,12 +135,28 @@ export function Cliente360Page() {
     cheques,
     loading: cargandoFicha,
     error,
+    recargar: recargarFicha,
   } = useFichaCliente(cardCodeSeleccionado);
   const {
     filas: estadoCuenta,
     loading: cargandoEstadoCuenta,
     error: errorEstadoCuenta,
   } = useEstadoCuenta(cardCodeSeleccionado);
+
+  const patchSuspendido = useCallback(
+    async (suspendido: boolean): Promise<SuspendidoResponse> => {
+      const token = await getAccessToken();
+      const cardCodeCodificado = encodeURIComponent(ficha?.card_code ?? "");
+      return apiFetch<SuspendidoResponse>(`/api/clientes/${cardCodeCodificado}/suspendido`, {
+        token,
+        method: "PATCH",
+        body: { suspendido },
+      });
+    },
+    [getAccessToken, ficha?.card_code]
+  );
+  const { enviando: enviandoSuspendido, error: errorSuspendido, actualizar: actualizarSuspendido } =
+    useSuspendido(patchSuspendido);
 
   const cuentas = ficha ? [ficha, ...ficha.cuentas_relacionadas] : [];
 
@@ -270,8 +295,22 @@ export function Cliente360Page() {
                     Cheques pendientes: {formatMoney(ficha.cheques_pendientes, ficha.moneda)} ({cheques.cantidad_cheques})
                   </StatusTag>
                 )}
+                <ControlSuspendido
+                  ficha={ficha}
+                  enviando={enviandoSuspendido}
+                  onCambiar={async (nuevoValor) => {
+                    const resultado = await actualizarSuspendido(nuevoValor);
+                    if (resultado) recargarFicha();
+                  }}
+                />
               </div>
             </div>
+
+            {errorSuspendido && (
+              <p style={{ color: "var(--color-risk)", fontSize: 12.5, marginTop: -8, marginBottom: 12 }}>
+                {errorSuspendido}
+              </p>
+            )}
 
             <div className="c360-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>
               <Estadistica etiqueta="Saldo cta. cte." valor={formatMoney(ficha.current_account_balance, ficha.moneda)} />
@@ -516,5 +555,70 @@ function Estadistica({
       <div style={{ fontSize: 11.5, color: "var(--color-muted)", marginBottom: 6 }}>{etiqueta}</div>
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 21, fontWeight: 500, color }}>{valor}</div>
     </div>
+  );
+}
+
+function ControlSuspendido({
+  ficha,
+  enviando,
+  onCambiar,
+}: {
+  ficha: FichaCliente;
+  enviando: boolean;
+  onCambiar: (nuevoValor: boolean) => Promise<void>;
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+
+  if (confirmando) {
+    const accion = ficha.suspendido ? "reactivar" : "suspender";
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
+        ¿Seguro que querés {accion} a este cliente?
+        <button
+          onClick={async () => {
+            await onCambiar(!ficha.suspendido);
+            setConfirmando(false);
+          }}
+          disabled={enviando}
+          style={{
+            border: "none",
+            borderRadius: 20,
+            padding: "3px 12px",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            background: "var(--color-risk)",
+            color: "#fff",
+          }}
+        >
+          {enviando ? "Guardando..." : "Sí, confirmar"}
+        </button>
+        <button
+          onClick={() => setConfirmando(false)}
+          disabled={enviando}
+          style={{
+            border: "none",
+            background: "none",
+            fontSize: 12,
+            color: "var(--color-muted)",
+            cursor: "pointer",
+          }}
+        >
+          Cancelar
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirmando(true)}
+      style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
+      title={ficha.suspendido ? "Click para reactivar" : "Click para suspender"}
+    >
+      <StatusTag variant={ficha.suspendido ? "risk" : "neutral"}>
+        {ficha.suspendido ? "Suspendido" : "Activo"}
+      </StatusTag>
+    </button>
   );
 }
