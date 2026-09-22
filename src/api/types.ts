@@ -107,6 +107,21 @@ export interface CandidatosResponse {
   candidatos: CandidatoBandeja[];
 }
 
+export interface Autorizacion {
+  doc_entry: number;
+  doc_num: number;
+  decision: "approved" | "rejected";
+  usuario: string;
+  motivo: string | null;
+  timestamp: string;
+  sap_status: "no_ejecutado" | "pendiente" | "ejecutado";
+  tiene_adjunto: boolean;
+}
+
+export interface AutorizacionesResponse {
+  autorizaciones: Autorizacion[];
+}
+
 export interface AdjuntoRequest {
   nombreArchivo: string;
   contenidoBase64: string;

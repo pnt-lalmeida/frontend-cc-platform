@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { apiFetch } from "../api/client";
 import type {
+  Autorizacion,
   ClienteBusqueda,
   ClientesResponse,
   EstadoCuentaFila,
@@ -12,7 +13,8 @@ import type {
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
-import { formatDate, formatMoney } from "../design/format";
+import { formatDate, formatDateTime, formatMoney } from "../design/format";
+import { useAutorizaciones } from "./cliente360/useAutorizaciones";
 import { facturaVencida } from "./cliente360/facturas";
 import { traducirEstadoPedido } from "./cliente360/pedidos";
 import { calcularResumenFacturas } from "./cliente360/resumenSaldos";
@@ -22,7 +24,35 @@ import { useEstadoCuenta } from "./cliente360/useEstadoCuenta";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
 import { useSuspendido } from "./cliente360/useSuspendido";
 
-type Pestaña = "resumen" | "facturas" | "pedidos" | "estado-cuenta";
+type Pestaña = "resumen" | "facturas" | "pedidos" | "autorizaciones" | "estado-cuenta";
+
+const COLUMNAS_AUTORIZACIONES: TableColumn<Autorizacion>[] = [
+  { key: "doc_num", header: "N° pedido", render: (a) => String(a.doc_num), sortValue: (a) => a.doc_num },
+  {
+    key: "decision",
+    header: "Decisión",
+    render: (a) =>
+      a.decision === "approved" ? (
+        <StatusTag variant="ok">Autorizado</StatusTag>
+      ) : (
+        <StatusTag variant="risk">Rechazado</StatusTag>
+      ),
+  },
+  { key: "motivo", header: "Motivo", render: (a) => a.motivo ?? "—" },
+  { key: "usuario", header: "Usuario", render: (a) => a.usuario },
+  { key: "timestamp", header: "Cuándo", render: (a) => formatDateTime(a.timestamp), sortValue: (a) => a.timestamp },
+  {
+    key: "sap_status",
+    header: "En SAP",
+    render: (a) =>
+      a.sap_status === "ejecutado" ? (
+        <StatusTag variant="ok">Sí</StatusTag>
+      ) : (
+        <StatusTag variant="caution">Todavía no</StatusTag>
+      ),
+  },
+  { key: "tiene_adjunto", header: "Adjunto", render: (a) => (a.tiene_adjunto ? "Sí" : "—") },
+];
 
 function construirColumnasFacturas(moneda: string | null): TableColumn<Factura>[] {
   return [
@@ -142,6 +172,11 @@ export function Cliente360Page() {
     loading: cargandoEstadoCuenta,
     error: errorEstadoCuenta,
   } = useEstadoCuenta(cardCodeSeleccionado);
+  const {
+    autorizaciones,
+    loading: cargandoAutorizaciones,
+    error: errorAutorizaciones,
+  } = useAutorizaciones(cardCodeSeleccionado);
 
   const patchSuspendido = useCallback(
     async (suspendido: boolean): Promise<SuspendidoResponse> => {
@@ -366,6 +401,7 @@ export function Cliente360Page() {
                 { key: "resumen", label: "Resumen" },
                 { key: "facturas", label: "Facturas" },
                 { key: "pedidos", label: "Pedidos" },
+                { key: "autorizaciones", label: "Autorizaciones" },
                 { key: "estado-cuenta", label: "Estado de cuenta" },
               ] as const
             ).map((pestaña) => (
@@ -508,6 +544,21 @@ export function Cliente360Page() {
               ) : (
                 <Table columns={columnasPedidos} rows={pedidos} rowKey={(p) => p.doc_entry} />
               ))}
+
+            {pestañaActiva === "autorizaciones" && (
+              <>
+                {errorAutorizaciones && <p style={{ color: "var(--color-risk)" }}>{errorAutorizaciones}</p>}
+                {cargandoAutorizaciones && (
+                  <p style={{ color: "var(--color-muted)" }}>Cargando autorizaciones...</p>
+                )}
+                {!cargandoAutorizaciones && !errorAutorizaciones && autorizaciones.length === 0 && (
+                  <p style={{ color: "var(--color-muted)" }}>Todavía no se autorizó ni rechazó ningún pedido de este cliente.</p>
+                )}
+                {!cargandoAutorizaciones && !errorAutorizaciones && autorizaciones.length > 0 && (
+                  <Table columns={COLUMNAS_AUTORIZACIONES} rows={autorizaciones} rowKey={(a) => a.doc_entry} />
+                )}
+              </>
+            )}
 
             {pestañaActiva === "estado-cuenta" && (
               <>

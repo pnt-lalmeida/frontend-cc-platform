@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatMoney } from "./format";
+import { formatDate, formatDateTime, formatMoney } from "./format";
 
 describe("formatMoney", () => {
   it("formatea UYU con coma decimal y punto de miles", () => {
@@ -42,5 +42,19 @@ describe("formatDate", () => {
     expect(formatDate(null)).toBe("—");
     expect(formatDate(undefined)).toBe("—");
     expect(formatDate("no-es-una-fecha")).toBe("—");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("incluye dia y hora (formato DD/MM/AAAA HH:mm, zona horaria del navegador)", () => {
+    // No fuerza UTC (a diferencia de formatDate) - la hora depende de la zona
+    // del entorno de test, por eso solo se valida la forma, no el valor exacto.
+    expect(formatDateTime("2026-09-22T01:06:26+00:00")).toMatch(/^\d{2}\/\d{2}\/\d{4},? \d{2}:\d{2}$/);
+  });
+
+  it("devuelve un guion largo para null/undefined/invalido", () => {
+    expect(formatDateTime(null)).toBe("—");
+    expect(formatDateTime(undefined)).toBe("—");
+    expect(formatDateTime("no-es-una-fecha")).toBe("—");
   });
 });
