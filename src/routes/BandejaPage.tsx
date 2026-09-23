@@ -8,6 +8,7 @@ import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
 import { useCandidatos } from "./bandeja/useCandidatos";
 import { OPCIONES_APROBAR, OPCION_CON_ADJUNTO, useDecision } from "./bandeja/useDecision";
+import { useDecisionMultiple, type ResultadoDecisionMultiple } from "./bandeja/useDecisionMultiple";
 
 type FiltroEstado = "Todos" | "Pendiente" | "Rechazado";
 
@@ -44,6 +45,8 @@ export function BandejaPage() {
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+  const [seleccionMultiple, setSeleccionMultiple] = useState<Set<number>>(new Set());
+  const [opcionAprobarMultiple, setOpcionAprobarMultiple] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
 
   const candidatosOrdenados = useMemo(() => ordenarPorFechaDesc(candidatos), [candidatos]);
   const candidatosFiltrados = useMemo(
@@ -72,6 +75,54 @@ export function BandejaPage() {
   );
 
   const { enviando, error: errorDecision, decidir, limpiarError } = useDecision(postDecision);
+  const { procesando, progreso, resultados, decidirVarios, limpiarResultados } = useDecisionMultiple(postDecision);
+
+  function alternarSeleccionMultiple(docEntry: number) {
+    setSeleccionMultiple((previo) => {
+      const nuevo = new Set(previo);
+      if (nuevo.has(docEntry)) {
+        nuevo.delete(docEntry);
+      } else {
+        nuevo.add(docEntry);
+      }
+      return nuevo;
+    });
+    limpiarResultados();
+  }
+
+  function limpiarSeleccionMultiple() {
+    setSeleccionMultiple(new Set());
+    setOpcionAprobarMultiple(null);
+    limpiarResultados();
+  }
+
+  const candidatosSeleccionados = useMemo(
+    () => candidatosFiltrados.filter((c) => c.doc_entry != null && seleccionMultiple.has(c.doc_entry)),
+    [candidatosFiltrados, seleccionMultiple]
+  );
+
+  async function decidirSeleccionMultiple(decision: "approved" | "rejected") {
+    const pedidos = candidatosSeleccionados
+      .filter((c) => c.doc_entry != null && c.doc_num != null && c.card_code != null)
+      .map((c) => ({ docEntry: c.doc_entry as number, docNum: c.doc_num as number, cardCode: c.card_code as string }));
+    if (pedidos.length === 0) return;
+
+    const items = await decidirVarios({
+      pedidos,
+      decision,
+      motivo: decision === "approved" ? (opcionAprobarMultiple ?? undefined) : undefined,
+    });
+    const exitosos = items.filter((r) => r.ok).length;
+    if (exitosos === items.length) {
+      setMensajeExito(`${exitosos} pedido${exitosos === 1 ? "" : "s"} ${decision === "approved" ? "aprobado" : "rechazado"}${exitosos === 1 ? "" : "s"}.`);
+      limpiarSeleccionMultiple();
+    } else {
+      // Se dejan marcados solo los que fallaron, para poder reintentar sin
+      // tener que volver a elegir todo el lote de nuevo.
+      setSeleccionMultiple(new Set(items.filter((r) => !r.ok).map((r) => r.docEntry)));
+    }
+    recargar();
+  }
 
   function seleccionar(c: CandidatoBandeja) {
     setSeleccionado(c);
@@ -235,6 +286,19 @@ export function BandejaPage() {
               flexDirection: "column",
             }}
           >
+            {seleccionMultiple.size > 0 && (
+              <BarraSeleccionMultiple
+                cantidad={seleccionMultiple.size}
+                opcionAprobar={opcionAprobarMultiple}
+                onElegirOpcion={setOpcionAprobarMultiple}
+                procesando={procesando}
+                progreso={progreso}
+                resultados={resultados}
+                onAprobar={() => decidirSeleccionMultiple("approved")}
+                onRechazar={() => decidirSeleccionMultiple("rejected")}
+                onCancelar={limpiarSeleccionMultiple}
+              />
+            )}
             {candidatosFiltrados.length === 0 ? (
               <p style={{ padding: 18, color: "var(--color-muted)" }}>
                 {candidatos.length === 0
@@ -247,7 +311,9 @@ export function BandejaPage() {
                   key={c.doc_entry ?? c.doc_num ?? Math.random()}
                   candidato={c}
                   activa={seleccionado?.doc_entry === c.doc_entry}
+                  marcado={c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
                   onClick={() => seleccionar(c)}
+                  onToggleMarcado={c.doc_entry != null ? () => alternarSeleccionMultiple(c.doc_entry as number) : undefined}
                 />
               ))
             )}
@@ -467,6 +533,103 @@ function chipStyle(activo: boolean): CSSProperties {
   };
 }
 
+function BarraSeleccionMultiple({
+  cantidad,
+  opcionAprobar,
+  onElegirOpcion,
+  procesando,
+  progreso,
+  resultados,
+  onAprobar,
+  onRechazar,
+  onCancelar,
+}: {
+  cantidad: number;
+  opcionAprobar: (typeof OPCIONES_APROBAR)[number] | null;
+  onElegirOpcion: (opcion: (typeof OPCIONES_APROBAR)[number]) => void;
+  procesando: boolean;
+  progreso: { actual: number; total: number } | null;
+  resultados: ResultadoDecisionMultiple[] | null;
+  onAprobar: () => void;
+  onRechazar: () => void;
+  onCancelar: () => void;
+}) {
+  const fallidos = resultados?.filter((r) => !r.ok) ?? [];
+
+  return (
+    <div
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 5,
+        padding: "14px 18px",
+        background: "var(--color-accent-soft)",
+        borderBottom: "1px solid var(--color-accent)",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <strong style={{ fontSize: 13.5 }}>{cantidad} seleccionado{cantidad === 1 ? "" : "s"}</strong>
+        <button
+          onClick={onCancelar}
+          disabled={procesando}
+          style={{ border: "none", background: "none", fontSize: 12.5, color: "var(--color-accent-ink)", cursor: "pointer", padding: "4px 8px" }}
+        >
+          Cancelar
+        </button>
+      </div>
+
+      {fallidos.length > 0 && (
+        <div style={{ marginBottom: 10, fontSize: 12.5 }}>
+          <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--color-risk)" }}>
+            {fallidos.length} pedido{fallidos.length === 1 ? "" : "s"} no se pudo procesar — sigue{fallidos.length === 1 ? "" : "n"} seleccionado{fallidos.length === 1 ? "" : "s"} para reintentar:
+          </p>
+          {fallidos.map((f) => (
+            <p key={f.docEntry} style={{ margin: "2px 0", color: "var(--color-risk)" }}>
+              Pedido {f.docNum}: {f.mensaje}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {procesando && progreso ? (
+        <p style={{ fontSize: 12.5, color: "var(--color-muted)", margin: 0 }}>
+          Procesando {progreso.actual} de {progreso.total}...
+        </p>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+            {OPCIONES_APROBAR.map((opcion) => (
+              <label key={opcion} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="opcion-aprobar-multiple"
+                  value={opcion}
+                  checked={opcionAprobar === opcion}
+                  onChange={() => onElegirOpcion(opcion)}
+                />
+                {opcion}
+              </label>
+            ))}
+          </div>
+          {opcionAprobar === OPCION_CON_ADJUNTO && (
+            <p style={{ fontSize: 11.5, color: "var(--color-muted)", marginTop: -6, marginBottom: 12 }}>
+              La aprobación múltiple no admite adjuntar archivo — se aprueba sin adjunto.
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button style={botonAccionStyle} onClick={onAprobar} disabled={!opcionAprobar}>
+              Aprobar {cantidad}
+            </button>
+            <button style={botonAccionStyle} onClick={onRechazar}>
+              Rechazar {cantidad}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Estadistica({ etiqueta, valor, mono }: { etiqueta: string; valor: string; mono?: boolean }) {
   return (
     <div>
@@ -479,23 +642,55 @@ function Estadistica({ etiqueta, valor, mono }: { etiqueta: string; valor: strin
 function FilaCola({
   candidato,
   activa,
+  marcado,
   onClick,
+  onToggleMarcado,
 }: {
   candidato: CandidatoBandeja;
   activa: boolean;
+  marcado: boolean;
   onClick: () => void;
+  onToggleMarcado?: () => void;
 }) {
   return (
     <div
       onClick={onClick}
       style={{
-        padding: "14px 18px",
+        padding: "14px 18px 14px 12px",
         borderTop: "1px solid var(--color-line)",
         cursor: "pointer",
-        background: activa ? "var(--color-accent-ink)" : undefined,
+        display: "flex",
+        gap: 8,
+        background: activa ? "var(--color-accent-ink)" : marcado ? "var(--color-accent-soft)" : undefined,
         color: activa ? "#fff" : undefined,
       }}
     >
+      {onToggleMarcado && (
+        // Zona de tap generosa (44x44) para que sea comodo marcar desde el celular -
+        // el checkbox visual es chico, pero el area clickeable no.
+        <label
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            width: 32,
+            minHeight: 44,
+            paddingTop: 14,
+            flexShrink: 0,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={marcado}
+            onChange={onToggleMarcado}
+            style={{ width: 18, height: 18, cursor: "pointer" }}
+            aria-label={`Seleccionar pedido ${candidato.doc_num ?? ""}`}
+          />
+        </label>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontWeight: 600, fontSize: 13.5 }}>{candidato.card_name ?? "—"}</span>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
@@ -538,6 +733,7 @@ function FilaCola({
           {candidato.status_aprobacion ?? "—"}
         </StatusTag>
         {candidato.cliente_suspendido && <StatusTag variant="caution">Cliente suspendido</StatusTag>}
+      </div>
       </div>
     </div>
   );

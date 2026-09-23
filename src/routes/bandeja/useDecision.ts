@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ApiError } from "../../api/client";
 import type { AdjuntoRequest, DecisionRequest, DecisionResponse } from "../../api/types";
+import { mensajeDeError } from "./errores";
 
 // docs/superpowers/specs/2026-09-21-bandeja-adjuntos-y-suspendido-design.md S1:
 // conjunto cerrado, texto final. "Estado de cuenta/carta" es la unica opcion
@@ -22,19 +22,6 @@ interface EstadoDecision {
   error: string | null;
   decidir: (params: ParametrosDecision) => Promise<DecisionResponse | null>;
   limpiarError: () => void;
-}
-
-function mensajeDeError(err: unknown): string {
-  if (
-    err instanceof ApiError &&
-    typeof err.body === "object" &&
-    err.body !== null &&
-    "error" in err.body &&
-    typeof (err.body as { error: unknown }).error === "string"
-  ) {
-    return (err.body as { error: string }).error;
-  }
-  return "No se pudo registrar la decisión. Intentá de nuevo.";
 }
 
 export function useDecision(

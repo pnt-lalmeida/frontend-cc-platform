@@ -79,13 +79,24 @@ body {
     display: none;
   }
   .bandeja-grid {
-    display: block !important;
+    display: flex !important;
+    flex-direction: column;
+    /* El padre define overflow:hidden inline (para el layout de escritorio
+       lado a lado) - en mobile, sin flex-basis explicito, .bandeja-queue
+       quedaba con altura "auto" (crecia con el contenido) y ese overflow
+       lo recortaba en vez de dejarlo scrollear. min-height:0 es necesario
+       ademas de flex:1 - un flex item nunca se encoge por debajo del alto
+       de su contenido a menos que se lo digas explicitamente. */
   }
   .bandeja-grid[data-selected="true"] .bandeja-queue {
     display: none !important;
   }
   .bandeja-grid[data-selected="false"] .bandeja-detail {
     display: none !important;
+  }
+  .bandeja-queue {
+    flex: 1;
+    min-height: 0;
   }
   .bandeja-detail {
     position: fixed;
