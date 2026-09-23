@@ -23,6 +23,7 @@ function fichaBase(overrides: Partial<FichaCliente> = {}): FichaCliente {
     cheques_pendientes: null,
     condicion_pago: null,
     suspendido: false,
+    zona_ctas_ctes: null,
     cuentas_relacionadas: [],
     ...overrides,
   };

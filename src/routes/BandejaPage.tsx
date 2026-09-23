@@ -40,6 +40,24 @@ function archivoABase64(archivo: File): Promise<string> {
   });
 }
 
+function validarArchivo(archivo: File): string | null {
+  if (archivo.size > TAMANO_MAXIMO_ADJUNTO_BYTES) {
+    return "El archivo supera el tamaño máximo permitido (10 MB).";
+  }
+  if (!TIPOS_ADJUNTO_PERMITIDOS.includes(archivo.type)) {
+    return "Tipo de archivo no permitido. Usá imagen, PDF o Word.";
+  }
+  return null;
+}
+
+async function archivoAAdjuntoRequest(archivo: File): Promise<AdjuntoRequest> {
+  return {
+    nombreArchivo: archivo.name,
+    contenidoBase64: await archivoABase64(archivo),
+    contentType: archivo.type,
+  };
+}
+
 export function BandejaPage() {
   const getAccessToken = useAccessToken();
   const { candidatos, loading, error, recargar } = useCandidatos();
@@ -53,6 +71,8 @@ export function BandejaPage() {
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [seleccionMultiple, setSeleccionMultiple] = useState<Set<number>>(new Set());
   const [opcionAprobarMultiple, setOpcionAprobarMultiple] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
+  const [archivoAdjuntoMultiple, setArchivoAdjuntoMultiple] = useState<File | null>(null);
+  const [errorAdjuntoMultiple, setErrorAdjuntoMultiple] = useState<string | null>(null);
 
   const candidatosOrdenados = useMemo(() => ordenarPorFechaDesc(candidatos), [candidatos]);
   const candidatosFiltrados = useMemo(
@@ -118,7 +138,30 @@ export function BandejaPage() {
   function limpiarSeleccionMultiple() {
     setSeleccionMultiple(new Set());
     setOpcionAprobarMultiple(null);
+    setArchivoAdjuntoMultiple(null);
+    setErrorAdjuntoMultiple(null);
     limpiarResultados();
+  }
+
+  function elegirOpcionAprobarMultiple(opcion: (typeof OPCIONES_APROBAR)[number]) {
+    setOpcionAprobarMultiple(opcion);
+    setArchivoAdjuntoMultiple(null);
+    setErrorAdjuntoMultiple(null);
+  }
+
+  function elegirArchivoMultiple(archivo: File | null) {
+    setErrorAdjuntoMultiple(null);
+    if (!archivo) {
+      setArchivoAdjuntoMultiple(null);
+      return;
+    }
+    const error = validarArchivo(archivo);
+    if (error) {
+      setErrorAdjuntoMultiple(error);
+      setArchivoAdjuntoMultiple(null);
+      return;
+    }
+    setArchivoAdjuntoMultiple(archivo);
   }
 
   const candidatosSeleccionados = useMemo(
@@ -132,10 +175,16 @@ export function BandejaPage() {
       .map((c) => ({ docEntry: c.doc_entry as number, docNum: c.doc_num as number, cardCode: c.card_code as string }));
     if (pedidos.length === 0) return;
 
+    let adjunto: AdjuntoRequest | undefined;
+    if (decision === "approved" && opcionAprobarMultiple === OPCION_CON_ADJUNTO && archivoAdjuntoMultiple) {
+      adjunto = await archivoAAdjuntoRequest(archivoAdjuntoMultiple);
+    }
+
     const items = await decidirVarios({
       pedidos,
       decision,
       motivo: decision === "approved" ? (opcionAprobarMultiple ?? undefined) : undefined,
+      adjunto,
     });
     const exitosos = items.filter((r) => r.ok).length;
     if (exitosos === items.length) {
@@ -165,13 +214,9 @@ export function BandejaPage() {
       setArchivoAdjunto(null);
       return;
     }
-    if (archivo.size > TAMANO_MAXIMO_ADJUNTO_BYTES) {
-      setErrorAdjunto("El archivo supera el tamaño máximo permitido (10 MB).");
-      setArchivoAdjunto(null);
-      return;
-    }
-    if (!TIPOS_ADJUNTO_PERMITIDOS.includes(archivo.type)) {
-      setErrorAdjunto("Tipo de archivo no permitido. Usá imagen, PDF o Word.");
+    const error = validarArchivo(archivo);
+    if (error) {
+      setErrorAdjunto(error);
       setArchivoAdjunto(null);
       return;
     }
@@ -186,11 +231,7 @@ export function BandejaPage() {
     }
     let adjunto: AdjuntoRequest | undefined;
     if (opcionAprobar === OPCION_CON_ADJUNTO && archivoAdjunto) {
-      adjunto = {
-        nombreArchivo: archivoAdjunto.name,
-        contenidoBase64: await archivoABase64(archivoAdjunto),
-        contentType: archivoAdjunto.type,
-      };
+      adjunto = await archivoAAdjuntoRequest(archivoAdjunto);
     }
     const resultado = await decidir({
       docEntry: seleccionado.doc_entry,
@@ -315,7 +356,10 @@ export function BandejaPage() {
               <BarraSeleccionMultiple
                 cantidad={seleccionMultiple.size}
                 opcionAprobar={opcionAprobarMultiple}
-                onElegirOpcion={setOpcionAprobarMultiple}
+                onElegirOpcion={elegirOpcionAprobarMultiple}
+                archivoAdjunto={archivoAdjuntoMultiple}
+                errorAdjunto={errorAdjuntoMultiple}
+                onElegirArchivo={elegirArchivoMultiple}
                 procesando={procesando}
                 segundosTranscurridos={segundosTranscurridos}
                 resultados={resultados}
@@ -569,6 +613,9 @@ function BarraSeleccionMultiple({
   cantidad,
   opcionAprobar,
   onElegirOpcion,
+  archivoAdjunto,
+  errorAdjunto,
+  onElegirArchivo,
   procesando,
   segundosTranscurridos,
   resultados,
@@ -579,6 +626,9 @@ function BarraSeleccionMultiple({
   cantidad: number;
   opcionAprobar: (typeof OPCIONES_APROBAR)[number] | null;
   onElegirOpcion: (opcion: (typeof OPCIONES_APROBAR)[number]) => void;
+  archivoAdjunto: File | null;
+  errorAdjunto: string | null;
+  onElegirArchivo: (archivo: File | null) => void;
   procesando: boolean;
   segundosTranscurridos: number;
   resultados: ResultadoDecisionMultiple[] | null;
@@ -645,9 +695,23 @@ function BarraSeleccionMultiple({
             ))}
           </div>
           {opcionAprobar === OPCION_CON_ADJUNTO && (
-            <p style={{ fontSize: 11.5, color: "var(--color-muted)", marginTop: -6, marginBottom: 12 }}>
-              La aprobación múltiple no admite adjuntar archivo — se aprueba sin adjunto.
-            </p>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11.5, color: "var(--color-muted)", display: "block", marginBottom: 6 }}>
+                Adjuntar archivo (opcional — se sube una copia a cada pedido seleccionado, máx. 10 MB)
+              </label>
+              <input
+                type="file"
+                accept={TIPOS_ADJUNTO_PERMITIDOS.join(",")}
+                onChange={(e) => onElegirArchivo(e.target.files?.[0] ?? null)}
+                style={{ fontSize: 12.5 }}
+              />
+              {archivoAdjunto && (
+                <p style={{ fontSize: 11.5, color: "var(--color-muted)", marginTop: 4 }}>
+                  {archivoAdjunto.name} ({Math.round(archivoAdjunto.size / 1024)} KB) — se sube a los {cantidad} pedidos seleccionados
+                </p>
+              )}
+              {errorAdjunto && <p style={{ color: "var(--color-risk)", fontSize: 11.5 }}>{errorAdjunto}</p>}
+            </div>
           )}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button style={botonAccionStyle} onClick={onAprobar} disabled={!opcionAprobar}>

@@ -25,6 +25,7 @@ export interface FichaCliente {
   cheques_pendientes: number | null;
   condicion_pago: string | null;
   suspendido: boolean;
+  zona_ctas_ctes: string | null;
   cuentas_relacionadas: FichaCliente[];
 }
 
@@ -155,6 +156,7 @@ export interface DecisionMultipleRequest {
   decision: "approved" | "rejected";
   motivo?: string;
   pedidos: PedidoParaDecisionMultiple[];
+  adjunto?: AdjuntoRequest;
 }
 
 export interface ResultadoDecisionMultipleApi {
@@ -163,6 +165,7 @@ export interface ResultadoDecisionMultipleApi {
   ok: boolean;
   sapStatus: "no_ejecutado" | "pendiente" | "ejecutado" | null;
   activityCode: number | null;
+  adjuntoBlobPath: string | null;
   error: string | null;
 }
 

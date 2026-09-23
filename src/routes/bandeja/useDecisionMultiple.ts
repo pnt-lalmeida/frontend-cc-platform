@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import type { DecisionMultipleRequest, DecisionMultipleResponse, PedidoParaDecisionMultiple } from "../../api/types";
+import type {
+  AdjuntoRequest,
+  DecisionMultipleRequest,
+  DecisionMultipleResponse,
+  PedidoParaDecisionMultiple,
+} from "../../api/types";
 import { mensajeDeError } from "./errores";
 
 interface ParametrosDecisionMultiple {
   pedidos: PedidoParaDecisionMultiple[];
   decision: "approved" | "rejected";
   motivo?: string;
+  adjunto?: AdjuntoRequest;
 }
 
 export interface ResultadoDecisionMultiple {
@@ -54,6 +60,7 @@ export function useDecisionMultiple(
         decision: params.decision,
         motivo: params.decision === "approved" ? params.motivo : undefined,
         pedidos: params.pedidos,
+        adjunto: params.decision === "approved" ? params.adjunto : undefined,
       });
       const items: ResultadoDecisionMultiple[] = respuesta.resultados.map((r) => ({
         docEntry: r.docEntry,

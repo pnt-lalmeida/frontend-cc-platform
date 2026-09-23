@@ -34,9 +34,36 @@ describe("useDecisionMultiple", () => {
     });
   });
 
-  it("al rechazar en bloque, nunca manda motivo", async () => {
+  it("con adjunto, lo manda una sola vez para todo el lote", async () => {
     const postDecisionMultiple = vi.fn().mockResolvedValue({
-      resultados: [{ docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, error: null }],
+      resultados: [
+        { docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, adjuntoBlobPath: "1/x.pdf", error: null },
+        { docEntry: 2, docNum: 200, ok: true, sapStatus: "ejecutado", activityCode: 2, adjuntoBlobPath: "2/x.pdf", error: null },
+      ],
+    });
+    const { result } = renderHook(() => useDecisionMultiple(postDecisionMultiple));
+    const adjunto = { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" };
+
+    await act(async () => {
+      await result.current.decidirVarios({
+        pedidos: [
+          { docEntry: 1, cardCode: "C1-1", docNum: 100 },
+          { docEntry: 2, cardCode: "C1-2", docNum: 200 },
+        ],
+        decision: "approved",
+        motivo: "Estado de cuenta/carta",
+        adjunto,
+      });
+    });
+
+    expect(postDecisionMultiple).toHaveBeenCalledTimes(1);
+    const [body] = postDecisionMultiple.mock.calls[0];
+    expect(body.adjunto).toEqual(adjunto);
+  });
+
+  it("al rechazar en bloque, nunca manda motivo ni adjunto", async () => {
+    const postDecisionMultiple = vi.fn().mockResolvedValue({
+      resultados: [{ docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, adjuntoBlobPath: null, error: null }],
     });
     const { result } = renderHook(() => useDecisionMultiple(postDecisionMultiple));
 
@@ -44,10 +71,12 @@ describe("useDecisionMultiple", () => {
       await result.current.decidirVarios({
         pedidos: [{ docEntry: 1, cardCode: "C1-1", docNum: 100 }],
         decision: "rejected",
+        adjunto: { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" },
       });
     });
 
     const [body] = postDecisionMultiple.mock.calls[0];
+    expect(body.adjunto).toBeUndefined();
     expect(body.motivo).toBeUndefined();
   });
 

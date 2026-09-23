@@ -347,7 +347,7 @@ export function Cliente360Page() {
               </p>
             )}
 
-            <div className="c360-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)" }}>
+            <div className="c360-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
               <Estadistica etiqueta="Saldo cta. cte." valor={formatMoney(ficha.current_account_balance, ficha.moneda)} />
               <Estadistica
                 etiqueta="Saldo pedidos abiertos"
@@ -372,6 +372,7 @@ export function Cliente360Page() {
                 borde
               />
               <Estadistica etiqueta="Condición de pago" valor={ficha.condicion_pago ?? "—"} borde />
+              <Estadistica etiqueta="Zona ctas. ctes." valor={ficha.zona_ctas_ctes ?? "—"} borde />
             </div>
 
             {facturas.length > 0 && (
