@@ -15,6 +15,7 @@ import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
 import { formatDate, formatDateTime, formatMoney } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
+import { useVerAdjunto } from "./cliente360/useVerAdjunto";
 import { facturaVencida } from "./cliente360/facturas";
 import { traducirEstadoPedido } from "./cliente360/pedidos";
 import { calcularResumenFacturas } from "./cliente360/resumenSaldos";
@@ -26,33 +27,62 @@ import { useSuspendido } from "./cliente360/useSuspendido";
 
 type Pestaña = "resumen" | "facturas" | "pedidos" | "autorizaciones" | "estado-cuenta";
 
-const COLUMNAS_AUTORIZACIONES: TableColumn<Autorizacion>[] = [
-  { key: "doc_num", header: "N° pedido", render: (a) => String(a.doc_num), sortValue: (a) => a.doc_num },
-  {
-    key: "decision",
-    header: "Decisión",
-    render: (a) =>
-      a.decision === "approved" ? (
-        <StatusTag variant="ok">Autorizado</StatusTag>
-      ) : (
-        <StatusTag variant="risk">Rechazado</StatusTag>
-      ),
-  },
-  { key: "motivo", header: "Motivo", render: (a) => a.motivo ?? "—" },
-  { key: "usuario", header: "Usuario", render: (a) => a.usuario },
-  { key: "timestamp", header: "Cuándo", render: (a) => formatDateTime(a.timestamp), sortValue: (a) => a.timestamp },
-  {
-    key: "sap_status",
-    header: "En SAP",
-    render: (a) =>
-      a.sap_status === "ejecutado" ? (
-        <StatusTag variant="ok">Sí</StatusTag>
-      ) : (
-        <StatusTag variant="caution">Todavía no</StatusTag>
-      ),
-  },
-  { key: "tiene_adjunto", header: "Adjunto", render: (a) => (a.tiene_adjunto ? "Sí" : "—") },
-];
+function construirColumnasAutorizaciones(
+  onVerAdjunto: (docEntry: number) => void,
+  cargandoDocEntry: number | null
+): TableColumn<Autorizacion>[] {
+  return [
+    { key: "doc_num", header: "N° pedido", render: (a) => String(a.doc_num), sortValue: (a) => a.doc_num },
+    {
+      key: "decision",
+      header: "Decisión",
+      render: (a) =>
+        a.decision === "approved" ? (
+          <StatusTag variant="ok">Autorizado</StatusTag>
+        ) : (
+          <StatusTag variant="risk">Rechazado</StatusTag>
+        ),
+    },
+    { key: "motivo", header: "Motivo", render: (a) => a.motivo ?? "—" },
+    { key: "usuario", header: "Usuario", render: (a) => a.usuario },
+    { key: "timestamp", header: "Cuándo", render: (a) => formatDateTime(a.timestamp), sortValue: (a) => a.timestamp },
+    {
+      key: "sap_status",
+      header: "En SAP",
+      render: (a) =>
+        a.sap_status === "ejecutado" ? (
+          <StatusTag variant="ok">Sí</StatusTag>
+        ) : (
+          <StatusTag variant="caution">Todavía no</StatusTag>
+        ),
+    },
+    {
+      key: "tiene_adjunto",
+      header: "Adjunto",
+      render: (a) =>
+        a.tiene_adjunto ? (
+          <button
+            type="button"
+            onClick={() => onVerAdjunto(a.doc_entry)}
+            disabled={cargandoDocEntry === a.doc_entry}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              font: "inherit",
+              color: "var(--color-accent)",
+              textDecoration: "underline",
+              cursor: cargandoDocEntry === a.doc_entry ? "default" : "pointer",
+            }}
+          >
+            {cargandoDocEntry === a.doc_entry ? "Abriendo…" : "Ver adjunto"}
+          </button>
+        ) : (
+          "—"
+        ),
+    },
+  ];
+}
 
 function construirColumnasFacturas(moneda: string | null): TableColumn<Factura>[] {
   return [
@@ -177,6 +207,20 @@ export function Cliente360Page() {
     loading: cargandoAutorizaciones,
     error: errorAutorizaciones,
   } = useAutorizaciones(cardCodeSeleccionado);
+
+  const obtenerUrlAdjunto = useCallback(
+    async (docEntry: number): Promise<string> => {
+      const token = await getAccessToken();
+      const respuesta = await apiFetch<{ url: string }>(`/api/bandeja/pedidos/${docEntry}/adjunto`, { token });
+      return respuesta.url;
+    },
+    [getAccessToken]
+  );
+  const { verAdjunto, cargandoDocEntry: cargandoAdjuntoDocEntry } = useVerAdjunto(obtenerUrlAdjunto);
+  const columnasAutorizaciones = useMemo(
+    () => construirColumnasAutorizaciones(verAdjunto, cargandoAdjuntoDocEntry),
+    [verAdjunto, cargandoAdjuntoDocEntry]
+  );
 
   const patchSuspendido = useCallback(
     async (suspendido: boolean): Promise<SuspendidoResponse> => {
@@ -556,7 +600,7 @@ export function Cliente360Page() {
                   <p style={{ color: "var(--color-muted)" }}>Todavía no se autorizó ni rechazó ningún pedido de este cliente.</p>
                 )}
                 {!cargandoAutorizaciones && !errorAutorizaciones && autorizaciones.length > 0 && (
-                  <Table columns={COLUMNAS_AUTORIZACIONES} rows={autorizaciones} rowKey={(a) => a.doc_entry} />
+                  <Table columns={columnasAutorizaciones} rows={autorizaciones} rowKey={(a) => a.doc_entry} />
                 )}
               </>
             )}

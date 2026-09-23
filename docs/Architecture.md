@@ -395,6 +395,8 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
 
     De paso, mismo día, se agregó a Cliente 360 el campo **`U_ZONA`** ("Zona Ctas Ctes" en la pantalla nativa de SAP) — este sí vía Service Layer normal (es un UDF de `BusinessPartners`, igual que `U_NumeroSN`/`U_EmailCC`, no necesita HANA): `normalize_business_partner` agrega `"zona_ctas_ctes"`, mostrado en la grilla de estadísticas de Cliente 360 junto a "Condición de pago".
 
+44. **`IMPLEMENTADO 23/09/2026`** — se puede ver/descargar el adjunto de una autorización desde el frontend (antes la pestaña "Autorizaciones" de Cliente 360 solo mostraba "Sí"/"—", sin forma de abrirlo). Nuevo endpoint `GET /api/bandeja/pedidos/{doc_entry}/adjunto`: busca la decisión con `BandejaRepository.find_decision(doc_entry)`, 404 si no existe o no tiene adjunto, y devuelve `{"url": ...}` con una **User Delegation SAS** de solo lectura (15 min) generada por `shared/blob_storage.py::generar_url_descarga` — sin usar account key en ningún momento, misma identidad RBAC (`DefaultAzureCredential`) que ya usa `subir_adjunto`. Requiere que la identidad (managed identity de la Function App en producción, o el usuario logueado via `az login` en local) tenga el rol `Storage Blob Data Contributor` sobre `stpontynccplatform` — mismo rol que ya hacía falta para subir adjuntos, no es un permiso nuevo distinto.
+
 ## 10. Gotchas ya pagados
 
 Convención recomendada por la guía de arquitectura Azure serverless: cada bug real se documenta acá con la causa raíz, no solo el síntoma — para que no se reintente en otra parte del sistema.
