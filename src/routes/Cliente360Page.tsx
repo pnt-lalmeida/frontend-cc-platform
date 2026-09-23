@@ -216,7 +216,7 @@ export function Cliente360Page() {
     },
     [getAccessToken]
   );
-  const { verAdjunto, cargandoDocEntry: cargandoAdjuntoDocEntry } = useVerAdjunto(obtenerUrlAdjunto);
+  const { verAdjunto, cargandoDocEntry: cargandoAdjuntoDocEntry, error: errorAdjunto } = useVerAdjunto(obtenerUrlAdjunto);
   const columnasAutorizaciones = useMemo(
     () => construirColumnasAutorizaciones(verAdjunto, cargandoAdjuntoDocEntry),
     [verAdjunto, cargandoAdjuntoDocEntry]
@@ -593,6 +593,7 @@ export function Cliente360Page() {
             {pestañaActiva === "autorizaciones" && (
               <>
                 {errorAutorizaciones && <p style={{ color: "var(--color-risk)" }}>{errorAutorizaciones}</p>}
+                {errorAdjunto && <p style={{ color: "var(--color-risk)" }}>{errorAdjunto}</p>}
                 {cargandoAutorizaciones && (
                   <p style={{ color: "var(--color-muted)" }}>Cargando autorizaciones...</p>
                 )}
