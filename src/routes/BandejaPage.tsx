@@ -92,7 +92,13 @@ export function BandejaPage() {
     [getAccessToken]
   );
 
-  const { enviando, error: errorDecision, decidir, limpiarError } = useDecision(postDecision);
+  const {
+    enviando,
+    segundosTranscurridos: segundosTranscurridosDecision,
+    error: errorDecision,
+    decidir,
+    limpiarError,
+  } = useDecision(postDecision);
   const { procesando, segundosTranscurridos, resultados, decidirVarios, limpiarResultados } =
     useDecisionMultiple(postDecisionMultiple);
 
@@ -513,7 +519,7 @@ export function BandejaPage() {
                   {mensajeError && <p style={{ color: "var(--color-risk)" }}>{mensajeError}</p>}
                   {errorDecision && <p style={{ color: "var(--color-risk)" }}>{errorDecision}</p>}
 
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                     <button style={botonAccionStyle} onClick={aprobar} disabled={enviando || !opcionAprobar}>
                       {enviando ? "Aprobando..." : "Aprobar"}
                     </button>
@@ -523,6 +529,12 @@ export function BandejaPage() {
                     <button style={botonAccionStyle} onClick={() => setSeleccionado(null)} disabled={enviando}>
                       Cancelar
                     </button>
+                    {enviando && (
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--color-muted)" }}>
+                        <span className="spinner" />
+                        {segundosTranscurridosDecision}s
+                      </span>
+                    )}
                   </div>
                 </div>
               </>

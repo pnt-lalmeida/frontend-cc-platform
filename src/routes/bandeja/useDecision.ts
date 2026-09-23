@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AdjuntoRequest, DecisionRequest, DecisionResponse } from "../../api/types";
 import { mensajeDeError } from "./errores";
 
@@ -19,6 +19,7 @@ interface ParametrosDecision {
 
 interface EstadoDecision {
   enviando: boolean;
+  segundosTranscurridos: number;
   error: string | null;
   decidir: (params: ParametrosDecision) => Promise<DecisionResponse | null>;
   limpiarError: () => void;
@@ -28,7 +29,20 @@ export function useDecision(
   postDecision: (docEntry: number, body: DecisionRequest) => Promise<DecisionResponse>
 ): EstadoDecision {
   const [enviando, setEnviando] = useState(false);
+  const [segundosTranscurridos, setSegundosTranscurridos] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Mismo motivo que useDecisionMultiple.ts (22/09/2026): un pedido
+  // individual ya puede tardar varios segundos (SAP + Azure SQL) - un
+  // contador deja claro que sigue en curso, no que se colgo.
+  useEffect(() => {
+    if (!enviando) return;
+    const inicio = Date.now();
+    const intervalo = setInterval(() => {
+      setSegundosTranscurridos(Math.floor((Date.now() - inicio) / 1000));
+    }, 1000);
+    return () => clearInterval(intervalo);
+  }, [enviando]);
 
   async function decidir(params: ParametrosDecision): Promise<DecisionResponse | null> {
     if (params.decision === "approved" && !params.motivo) {
@@ -48,6 +62,7 @@ export function useDecision(
         : { cardCode: params.cardCode, docNum: params.docNum, decision: params.decision };
 
     setEnviando(true);
+    setSegundosTranscurridos(0);
     setError(null);
     try {
       const respuesta = await postDecision(params.docEntry, body);
@@ -64,5 +79,5 @@ export function useDecision(
     setError(null);
   }
 
-  return { enviando, error, decidir, limpiarError };
+  return { enviando, segundosTranscurridos, error, decidir, limpiarError };
 }
