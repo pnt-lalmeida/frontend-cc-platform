@@ -2,30 +2,20 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useVerAdjunto } from "./useVerAdjunto";
 
-function fakeVentana() {
-  return { location: { href: "" }, close: vi.fn() };
-}
-
 describe("useVerAdjunto", () => {
-  it("abre la ventana ANTES de pedir la url (para no ser bloqueada como popup)", async () => {
-    const orden: string[] = [];
-    const ventana = fakeVentana();
-    const abrirVentana = vi.fn(() => {
-      orden.push("abrir");
-      return ventana;
-    });
-    const obtenerUrlAdjunto = vi.fn().mockImplementation(async () => {
-      orden.push("fetch");
-      return "https://fake/900011/carta.pdf?sas";
-    });
-    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, abrirVentana));
+  it("pide la url y la abre", async () => {
+    const obtenerUrlAdjunto = vi.fn().mockResolvedValue("https://fake/900011/carta.pdf?sas");
+    const abrir = vi.fn();
+    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, abrir));
 
     await act(async () => {
       await result.current.verAdjunto(900011);
     });
 
-    expect(orden).toEqual(["abrir", "fetch"]);
-    expect(ventana.location.href).toBe("https://fake/900011/carta.pdf?sas");
+    expect(obtenerUrlAdjunto).toHaveBeenCalledWith(900011);
+    expect(abrir).toHaveBeenCalledWith("https://fake/900011/carta.pdf?sas");
+    expect(result.current.error).toBeNull();
+    expect(result.current.cargandoDocEntry).toBeNull();
   });
 
   it("marca cargandoDocEntry mientras espera la respuesta", async () => {
@@ -34,7 +24,8 @@ describe("useVerAdjunto", () => {
       resolver = resolve;
     });
     const obtenerUrlAdjunto = vi.fn().mockReturnValue(promesaControlada);
-    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, fakeVentana));
+    const abrir = vi.fn();
+    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, abrir));
 
     let promesa!: Promise<void>;
     act(() => {
@@ -49,27 +40,16 @@ describe("useVerAdjunto", () => {
     expect(result.current.cargandoDocEntry).toBeNull();
   });
 
-  it("expone un error y cierra la ventana cuando la request falla", async () => {
-    const ventana = fakeVentana();
+  it("expone un error cuando la request falla, sin abrir nada", async () => {
     const obtenerUrlAdjunto = vi.fn().mockRejectedValue(new Error("fallo de red"));
-    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, () => ventana));
+    const abrir = vi.fn();
+    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, abrir));
 
     await act(async () => {
       await result.current.verAdjunto(900011);
     });
 
-    expect(ventana.close).toHaveBeenCalled();
+    expect(abrir).not.toHaveBeenCalled();
     expect(result.current.error).toBe("No se pudo abrir el adjunto.");
-  });
-
-  it("si el navegador bloquea el popup, avisa en vez de fallar en silencio", async () => {
-    const obtenerUrlAdjunto = vi.fn().mockResolvedValue("https://fake/900011/carta.pdf?sas");
-    const { result } = renderHook(() => useVerAdjunto(obtenerUrlAdjunto, () => null));
-
-    await act(async () => {
-      await result.current.verAdjunto(900011);
-    });
-
-    expect(result.current.error).toMatch(/bloque/i);
   });
 });
