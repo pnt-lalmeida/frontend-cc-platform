@@ -33,6 +33,24 @@ body {
   overflow-x: auto;
 }
 
+/* Aprobacion/rechazo multiple (22/09/2026): indica que un pedido esta en
+   proceso mientras se espera la respuesta del lote completo. */
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: girar 0.6s linear infinite;
+}
+
 .bandeja-back-mobile {
   display: none;
 }

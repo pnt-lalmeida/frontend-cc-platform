@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import { apiFetch } from "../api/client";
-import type { AdjuntoRequest, CandidatoBandeja, DecisionResponse } from "../api/types";
+import type {
+  AdjuntoRequest,
+  CandidatoBandeja,
+  DecisionMultipleRequest,
+  DecisionMultipleResponse,
+  DecisionResponse,
+} from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { formatDate, formatMoney } from "../design/format";
@@ -74,8 +80,21 @@ export function BandejaPage() {
     [getAccessToken]
   );
 
+  const postDecisionMultiple = useCallback(
+    async (body: DecisionMultipleRequest): Promise<DecisionMultipleResponse> => {
+      const token = await getAccessToken();
+      return apiFetch<DecisionMultipleResponse>("/api/bandeja/pedidos/decision-multiple", {
+        token,
+        method: "POST",
+        body,
+      });
+    },
+    [getAccessToken]
+  );
+
   const { enviando, error: errorDecision, decidir, limpiarError } = useDecision(postDecision);
-  const { procesando, progreso, resultados, decidirVarios, limpiarResultados } = useDecisionMultiple(postDecision);
+  const { procesando, segundosTranscurridos, resultados, decidirVarios, limpiarResultados } =
+    useDecisionMultiple(postDecisionMultiple);
 
   function alternarSeleccionMultiple(docEntry: number) {
     setSeleccionMultiple((previo) => {
@@ -292,7 +311,7 @@ export function BandejaPage() {
                 opcionAprobar={opcionAprobarMultiple}
                 onElegirOpcion={setOpcionAprobarMultiple}
                 procesando={procesando}
-                progreso={progreso}
+                segundosTranscurridos={segundosTranscurridos}
                 resultados={resultados}
                 onAprobar={() => decidirSeleccionMultiple("approved")}
                 onRechazar={() => decidirSeleccionMultiple("rejected")}
@@ -312,6 +331,7 @@ export function BandejaPage() {
                   candidato={c}
                   activa={seleccionado?.doc_entry === c.doc_entry}
                   marcado={c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
+                  procesando={procesando && c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
                   onClick={() => seleccionar(c)}
                   onToggleMarcado={c.doc_entry != null ? () => alternarSeleccionMultiple(c.doc_entry as number) : undefined}
                 />
@@ -538,7 +558,7 @@ function BarraSeleccionMultiple({
   opcionAprobar,
   onElegirOpcion,
   procesando,
-  progreso,
+  segundosTranscurridos,
   resultados,
   onAprobar,
   onRechazar,
@@ -548,7 +568,7 @@ function BarraSeleccionMultiple({
   opcionAprobar: (typeof OPCIONES_APROBAR)[number] | null;
   onElegirOpcion: (opcion: (typeof OPCIONES_APROBAR)[number]) => void;
   procesando: boolean;
-  progreso: { actual: number; total: number } | null;
+  segundosTranscurridos: number;
   resultados: ResultadoDecisionMultiple[] | null;
   onAprobar: () => void;
   onRechazar: () => void;
@@ -591,9 +611,10 @@ function BarraSeleccionMultiple({
         </div>
       )}
 
-      {procesando && progreso ? (
-        <p style={{ fontSize: 12.5, color: "var(--color-muted)", margin: 0 }}>
-          Procesando {progreso.actual} de {progreso.total}...
+      {procesando ? (
+        <p style={{ fontSize: 12.5, color: "var(--color-muted)", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          <span className="spinner" />
+          Procesando {cantidad} pedido{cantidad === 1 ? "" : "s"}... {segundosTranscurridos}s
         </p>
       ) : (
         <>
@@ -643,24 +664,27 @@ function FilaCola({
   candidato,
   activa,
   marcado,
+  procesando,
   onClick,
   onToggleMarcado,
 }: {
   candidato: CandidatoBandeja;
   activa: boolean;
   marcado: boolean;
+  procesando?: boolean;
   onClick: () => void;
   onToggleMarcado?: () => void;
 }) {
   return (
     <div
-      onClick={onClick}
+      onClick={procesando ? undefined : onClick}
       style={{
         padding: "14px 18px 14px 12px",
         borderTop: "1px solid var(--color-line)",
-        cursor: "pointer",
+        cursor: procesando ? "default" : "pointer",
         display: "flex",
         gap: 8,
+        opacity: procesando ? 0.6 : 1,
         background: activa ? "var(--color-accent-ink)" : marcado ? "var(--color-accent-soft)" : undefined,
         color: activa ? "#fff" : undefined,
       }}
@@ -678,16 +702,20 @@ function FilaCola({
             minHeight: 44,
             paddingTop: 14,
             flexShrink: 0,
-            cursor: "pointer",
+            cursor: procesando ? "default" : "pointer",
           }}
         >
-          <input
-            type="checkbox"
-            checked={marcado}
-            onChange={onToggleMarcado}
-            style={{ width: 18, height: 18, cursor: "pointer" }}
-            aria-label={`Seleccionar pedido ${candidato.doc_num ?? ""}`}
-          />
+          {procesando ? (
+            <span className="spinner" style={{ color: "var(--color-accent)", marginTop: 2 }} />
+          ) : (
+            <input
+              type="checkbox"
+              checked={marcado}
+              onChange={onToggleMarcado}
+              style={{ width: 18, height: 18, cursor: "pointer" }}
+              aria-label={`Seleccionar pedido ${candidato.doc_num ?? ""}`}
+            />
+          )}
         </label>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>

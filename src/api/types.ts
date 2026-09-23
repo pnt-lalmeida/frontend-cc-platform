@@ -144,3 +144,28 @@ export interface SuspendidoResponse {
   card_code: string;
   suspendido: boolean;
 }
+
+export interface PedidoParaDecisionMultiple {
+  docEntry: number;
+  cardCode: string;
+  docNum: number;
+}
+
+export interface DecisionMultipleRequest {
+  decision: "approved" | "rejected";
+  motivo?: string;
+  pedidos: PedidoParaDecisionMultiple[];
+}
+
+export interface ResultadoDecisionMultipleApi {
+  docEntry: number;
+  docNum: number;
+  ok: boolean;
+  sapStatus: "no_ejecutado" | "pendiente" | "ejecutado" | null;
+  activityCode: number | null;
+  error: string | null;
+}
+
+export interface DecisionMultipleResponse {
+  resultados: ResultadoDecisionMultipleApi[];
+}
