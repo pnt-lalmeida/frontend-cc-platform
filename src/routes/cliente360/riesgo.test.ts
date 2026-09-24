@@ -24,6 +24,7 @@ function fichaBase(overrides: Partial<FichaCliente> = {}): FichaCliente {
     condicion_pago: null,
     suspendido: false,
     zona_ctas_ctes: null,
+    pagador_central: null,
     cuentas_relacionadas: [],
     ...overrides,
   };

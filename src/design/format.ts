@@ -22,6 +22,37 @@ export function formatMoney(
   return `${simbolo} ${numero}`;
 }
 
+// Version abreviada de formatMoney - sin decimales, K/M a partir de miles y
+// millones. Solo para estadisticas "de un vistazo" (ej. grilla de Resumen de
+// Cliente 360) donde el espacio es chico y no hay que decidir sobre el
+// centavo exacto - formatMoney (con los dos decimales completos) sigue
+// siendo la funcion correcta en Bandeja, Facturas, Pedidos, etc.
+export function formatMoneyCompact(
+  value: number | null | undefined,
+  moneda: string | null = "UYU"
+): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  const signo = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+
+  let numero: string;
+  if (abs >= 1_000_000) {
+    numero = `${new Intl.NumberFormat("es-UY", { maximumFractionDigits: 1 }).format(abs / 1_000_000)}M`;
+  } else if (abs >= 1_000) {
+    numero = `${new Intl.NumberFormat("es-UY", { maximumFractionDigits: 1 }).format(abs / 1_000)}K`;
+  } else {
+    numero = new Intl.NumberFormat("es-UY", { maximumFractionDigits: 0 }).format(abs);
+  }
+
+  if (!moneda) {
+    return `${signo}${numero}`;
+  }
+  const simbolo = MONEDA_SIMBOLO[moneda] ?? moneda;
+  return `${signo}${simbolo} ${numero}`;
+}
+
 export function formatDate(isoDate: string | null | undefined): string {
   if (!isoDate) {
     return "—";

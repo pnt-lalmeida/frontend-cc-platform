@@ -13,7 +13,7 @@ import type {
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
-import { formatDate, formatDateTime, formatMoney } from "../design/format";
+import { formatDate, formatDateTime, formatMoney, formatMoneyCompact } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
 import { useVerAdjunto } from "./cliente360/useVerAdjunto";
 import { facturaVencida } from "./cliente360/facturas";
@@ -391,16 +391,25 @@ export function Cliente360Page() {
               </p>
             )}
 
-            <div className="c360-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
-              <Estadistica etiqueta="Saldo cta. cte." valor={formatMoney(ficha.current_account_balance, ficha.moneda)} />
+            <div
+              className="c360-stats-grid"
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", rowGap: 16 }}
+            >
+              <Estadistica
+                etiqueta="Saldo cta. cte."
+                valor={formatMoneyCompact(ficha.current_account_balance, ficha.moneda)}
+                titulo={formatMoney(ficha.current_account_balance, ficha.moneda)}
+              />
               <Estadistica
                 etiqueta="Saldo pedidos abiertos"
-                valor={formatMoney(ficha.open_orders_balance, ficha.moneda)}
+                valor={formatMoneyCompact(ficha.open_orders_balance, ficha.moneda)}
+                titulo={formatMoney(ficha.open_orders_balance, ficha.moneda)}
                 borde
               />
               <Estadistica
                 etiqueta="Saldo vencido"
-                valor={formatMoney(resumenFacturas.saldoVencido, ficha.moneda)}
+                valor={formatMoneyCompact(resumenFacturas.saldoVencido, ficha.moneda)}
+                titulo={formatMoney(resumenFacturas.saldoVencido, ficha.moneda)}
                 color={resumenFacturas.saldoVencido > 0 ? "var(--color-risk)" : undefined}
                 borde
               />
@@ -417,6 +426,12 @@ export function Cliente360Page() {
               />
               <Estadistica etiqueta="Condición de pago" valor={ficha.condicion_pago ?? "—"} borde />
               <Estadistica etiqueta="Zona ctas. ctes." valor={ficha.zona_ctas_ctes ?? "—"} borde />
+              <Estadistica
+                etiqueta="Pagador central"
+                valor={ficha.pagador_central?.card_code ?? "—"}
+                sub={ficha.pagador_central?.card_name ?? undefined}
+                borde
+              />
             </div>
 
             {facturas.length > 0 && (
@@ -634,11 +649,15 @@ export function Cliente360Page() {
 function Estadistica({
   etiqueta,
   valor,
+  sub,
+  titulo,
   color,
   borde,
 }: {
   etiqueta: string;
   valor: string;
+  sub?: string;
+  titulo?: string;
   color?: string;
   borde?: boolean;
 }) {
@@ -647,10 +666,38 @@ function Estadistica({
       style={{
         padding: "0 20px",
         borderLeft: borde ? "1px solid var(--color-line)" : undefined,
+        minWidth: 0,
       }}
     >
       <div style={{ fontSize: 11.5, color: "var(--color-muted)", marginBottom: 6 }}>{etiqueta}</div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 21, fontWeight: 500, color }}>{valor}</div>
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: 21,
+          fontWeight: 500,
+          color,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+        title={titulo ?? (sub ? `${valor} — ${sub}` : valor)}
+      >
+        {valor}
+      </div>
+      {sub && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--color-muted)",
+            marginTop: 2,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sub}
+        </div>
+      )}
     </div>
   );
 }

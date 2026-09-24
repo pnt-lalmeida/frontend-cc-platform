@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatMoney } from "./format";
+import { formatDate, formatDateTime, formatMoney, formatMoneyCompact } from "./format";
 
 describe("formatMoney", () => {
   it("formatea UYU con coma decimal y punto de miles", () => {
@@ -29,6 +29,37 @@ describe("formatMoney", () => {
 
   it("muestra el codigo de moneda tal cual si no esta en la tabla de simbolos", () => {
     expect(formatMoney(100, "C4")).toBe("C4 100,00");
+  });
+});
+
+describe("formatMoneyCompact", () => {
+  it("sin decimales por debajo de 1.000", () => {
+    expect(formatMoneyCompact(320.4, "UYU")).toBe("$ 320");
+  });
+
+  it("abrevia con K entre 1.000 y 1.000.000, con un decimal si no es redondo", () => {
+    expect(formatMoneyCompact(148560.32, "UYU")).toBe("$ 148,6K");
+  });
+
+  it("abrevia con K sin decimal cuando es un valor redondo", () => {
+    expect(formatMoneyCompact(2000, "UYU")).toBe("$ 2K");
+  });
+
+  it("abrevia con M a partir de 1.000.000", () => {
+    expect(formatMoneyCompact(2500000, "USD")).toBe("US$ 2,5M");
+  });
+
+  it("preserva el signo de un valor negativo", () => {
+    expect(formatMoneyCompact(-148560.32, "UYU")).toBe("-$ 148,6K");
+  });
+
+  it("devuelve un guion largo para null/undefined", () => {
+    expect(formatMoneyCompact(null)).toBe("—");
+    expect(formatMoneyCompact(undefined)).toBe("—");
+  });
+
+  it("no adivina un simbolo cuando la moneda es explicitamente null", () => {
+    expect(formatMoneyCompact(148560.32, null)).toBe("148,6K");
   });
 });
 

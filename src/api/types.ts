@@ -26,6 +26,7 @@ export interface FichaCliente {
   condicion_pago: string | null;
   suspendido: boolean;
   zona_ctas_ctes: string | null;
+  pagador_central: { card_code: string; card_name: string | null } | null;
   cuentas_relacionadas: FichaCliente[];
 }
 
