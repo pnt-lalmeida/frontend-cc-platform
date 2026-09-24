@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { apiFetch } from "../api/client";
 import type {
   AdjuntoRequest,
@@ -10,6 +10,7 @@ import type {
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { formatDate, formatMoney } from "../design/format";
+import { agruparPorCliente, type GrupoCliente } from "./bandeja/agrupar";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
 import { useCandidatos } from "./bandeja/useCandidatos";
@@ -70,6 +71,7 @@ export function BandejaPage() {
   const [mensajeError, setMensajeError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
   const [seleccionMultiple, setSeleccionMultiple] = useState<Set<number>>(new Set());
+  const [gruposColapsados, setGruposColapsados] = useState<Set<string>>(new Set());
   const [opcionAprobarMultiple, setOpcionAprobarMultiple] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
   const [archivoAdjuntoMultiple, setArchivoAdjuntoMultiple] = useState<File | null>(null);
   const [errorAdjuntoMultiple, setErrorAdjuntoMultiple] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export function BandejaPage() {
         .filter((c) => coincideBusqueda(c, busqueda)),
     [candidatosOrdenados, busqueda, filtroEstado]
   );
+  const gruposFiltrados = useMemo(() => agruparPorCliente(candidatosFiltrados), [candidatosFiltrados]);
   const cantidadPendientes = candidatos.filter((c) => c.status_aprobacion === "Pendiente").length;
   const cantidadRechazados = candidatos.filter((c) => c.status_aprobacion === "Rechazado").length;
 
@@ -133,6 +136,32 @@ export function BandejaPage() {
       return nuevo;
     });
     limpiarResultados();
+  }
+
+  function alternarSeleccionGrupo(grupo: GrupoCliente) {
+    const docEntries = grupo.pedidos
+      .map((p) => p.doc_entry)
+      .filter((d): d is number => d != null);
+    if (docEntries.length === 0) return;
+    const todosMarcados = docEntries.every((d) => seleccionMultiple.has(d));
+    setSeleccionMultiple((previo) => {
+      const nuevo = new Set(previo);
+      docEntries.forEach((d) => (todosMarcados ? nuevo.delete(d) : nuevo.add(d)));
+      return nuevo;
+    });
+    limpiarResultados();
+  }
+
+  function alternarColapso(clave: string) {
+    setGruposColapsados((previo) => {
+      const nuevo = new Set(previo);
+      if (nuevo.has(clave)) {
+        nuevo.delete(clave);
+      } else {
+        nuevo.add(clave);
+      }
+      return nuevo;
+    });
   }
 
   function limpiarSeleccionMultiple() {
@@ -375,17 +404,36 @@ export function BandejaPage() {
                   : "Ningún pedido coincide con la búsqueda."}
               </p>
             ) : (
-              candidatosFiltrados.map((c) => (
-                <FilaCola
-                  key={c.doc_entry ?? c.doc_num ?? Math.random()}
-                  candidato={c}
-                  activa={seleccionado?.doc_entry === c.doc_entry}
-                  marcado={c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
-                  procesando={procesando && c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
-                  onClick={() => seleccionar(c)}
-                  onToggleMarcado={c.doc_entry != null ? () => alternarSeleccionMultiple(c.doc_entry as number) : undefined}
-                />
-              ))
+              gruposFiltrados.map((grupo) => {
+                const docEntries = grupo.pedidos.map((p) => p.doc_entry).filter((d): d is number => d != null);
+                const seleccionTotal = docEntries.length > 0 && docEntries.every((d) => seleccionMultiple.has(d));
+                const seleccionParcial = docEntries.some((d) => seleccionMultiple.has(d));
+                const colapsado = gruposColapsados.has(grupo.clave);
+                return (
+                  <div key={grupo.clave}>
+                    <EncabezadoGrupo
+                      grupo={grupo}
+                      colapsado={colapsado}
+                      onToggleColapso={() => alternarColapso(grupo.clave)}
+                      seleccionTotal={seleccionTotal}
+                      seleccionParcial={seleccionParcial}
+                      onToggleSeleccionGrupo={() => alternarSeleccionGrupo(grupo)}
+                    />
+                    {!colapsado &&
+                      grupo.pedidos.map((c) => (
+                        <FilaCola
+                          key={c.doc_entry ?? c.doc_num ?? Math.random()}
+                          candidato={c}
+                          activa={seleccionado?.doc_entry === c.doc_entry}
+                          marcado={c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
+                          procesando={procesando && c.doc_entry != null && seleccionMultiple.has(c.doc_entry)}
+                          onClick={() => seleccionar(c)}
+                          onToggleMarcado={c.doc_entry != null ? () => alternarSeleccionMultiple(c.doc_entry as number) : undefined}
+                        />
+                      ))}
+                  </div>
+                );
+              })
             )}
             {candidatosFiltrados.length > 0 && (
               <div
@@ -732,6 +780,77 @@ function Estadistica({ etiqueta, valor, mono }: { etiqueta: string; valor: strin
     <div>
       <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{etiqueta}</div>
       <div style={{ fontFamily: mono ? "var(--font-mono)" : undefined, fontSize: 16, marginTop: 3 }}>{valor}</div>
+    </div>
+  );
+}
+
+function EncabezadoGrupo({
+  grupo,
+  colapsado,
+  onToggleColapso,
+  seleccionTotal,
+  seleccionParcial,
+  onToggleSeleccionGrupo,
+}: {
+  grupo: GrupoCliente;
+  colapsado: boolean;
+  onToggleColapso: () => void;
+  seleccionTotal: boolean;
+  seleccionParcial: boolean;
+  onToggleSeleccionGrupo: () => void;
+}) {
+  const checkboxRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = !seleccionTotal && seleccionParcial;
+    }
+  }, [seleccionTotal, seleccionParcial]);
+
+  const nombre = grupo.cardName ?? grupo.cardCode ?? "Cliente sin nombre";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "9px 18px 9px 12px",
+        background: "var(--color-paper)",
+        borderTop: "1px solid var(--color-line)",
+      }}
+    >
+      <input
+        ref={checkboxRef}
+        type="checkbox"
+        checked={seleccionTotal}
+        onChange={onToggleSeleccionGrupo}
+        style={{ width: 16, height: 16, cursor: "pointer", flexShrink: 0 }}
+        aria-label={`Seleccionar todos los pedidos de ${nombre}`}
+      />
+      <button
+        type="button"
+        onClick={onToggleColapso}
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "none",
+          border: "none",
+          padding: 0,
+          font: "inherit",
+          cursor: "pointer",
+          textAlign: "left",
+          color: "inherit",
+        }}
+      >
+        <span style={{ fontWeight: 600, fontSize: 12.5 }}>
+          {colapsado ? "▸" : "▾"} {nombre}
+        </span>
+        <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
+          {grupo.pedidos.length} pedido{grupo.pedidos.length === 1 ? "" : "s"}
+        </span>
+      </button>
     </div>
   );
 }
