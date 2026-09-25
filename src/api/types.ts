@@ -317,3 +317,20 @@ export interface ActualizarAlertaRequest {
 export interface MarcarVistasResponse {
   marcadas: number;
 }
+
+// Situacion de la cuenta (contrato Fase A, 25/09/2026). La lista de opciones
+// viaja siempre en la respuesta: la UI nunca la duplica. null = "Sin
+// situacion especial" (la gran mayoria de los clientes).
+export interface SituacionCuentaResponse {
+  situacion: string | null;
+  actualizada_por: string | null; // UPN
+  actualizada_por_nombre: string | null;
+  actualizada_utc: string | null;
+  opciones: string[];
+  // Solo si la clave consolido con un SN distinto del propio (cuenta hija).
+  pagador_central?: PagadorCentral | null;
+}
+
+export interface GuardarSituacionRequest {
+  situacion: string | null;
+}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FichaCliente } from "../api/types";
 import type { FeatureNombre } from "../features/features";
@@ -63,7 +63,23 @@ vi.mock("./cliente360/useFichaCliente", () => ({
   }),
 }));
 vi.mock("./cliente360/useEstadoCuenta", () => ({
-  useEstadoCuenta: () => ({ filas: [], pagadorCentral: null, loading: false, error: null }),
+  useEstadoCuenta: () => ({
+    filas: [
+      {
+        folio: "1",
+        tipo: "Factura",
+        moneda: "UYU",
+        vendedor: null,
+        fecha: "2020-01-01",
+        vencimiento: "2020-02-01",
+        saldo: 4200,
+        saldo_corrido: 4200,
+      },
+    ],
+    pagadorCentral: null,
+    loading: false,
+    error: null,
+  }),
 }));
 vi.mock("./cliente360/useAutorizaciones", () => ({
   useAutorizaciones: () => ({ autorizaciones: [], loading: false, error: null }),
@@ -95,5 +111,45 @@ describe("Cliente360Page — pestaña Actividad", () => {
     expect(screen.queryByTestId("bitacora")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Actividad" }));
     expect(screen.getByTestId("bitacora").textContent).toBe("C1-17453");
+  });
+});
+
+describe("Cliente360Page — Situación de la cuenta y Antigüedad de saldos", () => {
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    apiFetch.mockReset();
+  });
+
+  it("sin las funcionalidades no aparecen ni se pide /situacion", async () => {
+    render(<Cliente360Page />);
+
+    expect(screen.queryByText("Antigüedad de saldos")).toBeNull();
+    expect(screen.queryByRole("button", { name: /situación/i })).toBeNull();
+    await Promise.resolve();
+    expect(apiFetch.mock.calls.some(([url]) => String(url).includes("/situacion"))).toBe(false);
+  });
+
+  it("con las funcionalidades aparecen el control de situación y el bloque de antigüedad", async () => {
+    featuresHabilitadas.add("situacion_cuenta");
+    featuresHabilitadas.add("antiguedad_saldos");
+    apiFetch.mockImplementation(async (url: string) =>
+      String(url).includes("/situacion")
+        ? {
+            situacion: "Abogados",
+            actualizada_por: null,
+            actualizada_por_nombre: null,
+            actualizada_utc: null,
+            opciones: ["Abogados"],
+          }
+        : undefined
+    );
+    render(<Cliente360Page />);
+
+    expect(screen.getByText("Antigüedad de saldos")).toBeTruthy();
+    expect(screen.getByTestId("mayor-61-UYU").textContent).toBe("$ 4.200");
+    expect(await screen.findByRole("button", { name: /situación: abogados/i })).toBeTruthy();
+    await waitFor(() =>
+      expect(apiFetch).toHaveBeenCalledWith("/api/clientes/C1-17453/situacion", { token: "token" })
+    );
   });
 });

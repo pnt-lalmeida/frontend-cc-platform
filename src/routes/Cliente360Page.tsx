@@ -16,7 +16,9 @@ import { Table, type TableColumn } from "../components/Table";
 import { useFeatures } from "../features/FeaturesContext";
 import { useUsuarioActual } from "../auth/useUsuarioActual";
 import { BitacoraActividad } from "./cliente360/BitacoraActividad";
+import { BloqueAntiguedadSaldos } from "./cliente360/BloqueAntiguedadSaldos";
 import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago";
+import { ControlSituacionCuenta } from "./cliente360/ControlSituacionCuenta";
 import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
 import { useVerAdjunto } from "./cliente360/useVerAdjunto";
@@ -391,7 +393,7 @@ export function Cliente360Page() {
                   </div>
                 )}
               </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                 <StatusTag variant="neutral">Clasificación {ficha.clasificacion_cc ?? "—"}</StatusTag>
                 {construirResumenRiesgo(ficha)
                   .filter((tag) => tag.key !== "clasificacion")
@@ -405,6 +407,8 @@ export function Cliente360Page() {
                     {`Cheques pendientes: ${formatMoneyEntero(montoCheques(ficha.cheques_pendientes), ficha.moneda)} (${cheques.cantidad_cheques})`}
                   </StatusTag>
                 )}
+                {/* Fase A CRM: solo con la funcionalidad; sin ella no hay fetch de /situacion. */}
+                {habilitada("situacion_cuenta") && <ControlSituacionCuenta cardCode={ficha.card_code} />}
                 <ControlSuspendido
                   ficha={ficha}
                   enviando={enviandoSuspendido}
@@ -551,6 +555,15 @@ export function Cliente360Page() {
                 </div>
 
                 <div>
+                  {habilitada("antiguedad_saldos") && (
+                    <BloqueAntiguedadSaldos
+                      filas={estadoCuenta}
+                      pagadorCentral={pagadorCentralEstadoCuenta}
+                      loading={cargandoEstadoCuenta}
+                      error={errorEstadoCuenta}
+                      enPiloto={enPiloto("antiguedad_saldos")}
+                    />
+                  )}
                   {habilitada("indicadores_pago") && (
                     <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
                   )}

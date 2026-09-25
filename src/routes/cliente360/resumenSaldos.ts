@@ -1,4 +1,5 @@
 import type { Factura } from "../../api/types";
+import { diaCalendario, hoyUruguay } from "../../utils/fechas";
 import { facturaVencida } from "./facturas";
 
 export interface ResumenFacturas {
@@ -38,13 +39,10 @@ export function calcularResumenFacturas(facturas: Factura[], hoy: Date = new Dat
   };
 }
 
+// "Hoy" en Montevideo (mismo criterio que facturaVencida): despues de las 21 h
+// de Uruguay, en UTC ya es el dia siguiente y sumaba un dia de mas.
 function diasDeAtraso(docDueDate: string, hoy: Date): number {
-  const vencimiento = new Date(docDueDate);
-  const vencimientoUTC = Date.UTC(
-    vencimiento.getUTCFullYear(),
-    vencimiento.getUTCMonth(),
-    vencimiento.getUTCDate()
-  );
-  const hoyUTC = Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), hoy.getUTCDate());
-  return Math.round((hoyUTC - vencimientoUTC) / 86400000);
+  const vencimiento = diaCalendario(docDueDate) ?? 0;
+  const hoyDia = diaCalendario(hoyUruguay(hoy)) ?? 0;
+  return Math.round((hoyDia - vencimiento) / 86400000);
 }

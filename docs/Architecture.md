@@ -510,6 +510,31 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **Validador:** aprobado con observaciones, corregidas; los dos costos aceptados figuran arriba.
     - Tests: 445 backend, 226 frontend.
     - **Al promover a producción:** el timer corre solo en Azure. Con `FEATURE_ALERTAS` en `piloto`, su primera corrida hace el arranque en cero **siempre que `crm_alertas` no tenga ninguna fila `pedido_bloqueado`**. Ojo en local: HANA apunta a TEST y Azure SQL a la base real, así que correr `tareas-programadas/ejecutar` en local carga alertas de pedidos de TEST en la tabla real y arruina el arranque. Antes de promover hay que verificar que la tabla esté vacía (o limpiarla).
+52. **`IMPLEMENTADO 25/09/2026 (piloto)` — CRM liviano: "Situación de la cuenta" (A) y "Antigüedad de saldos" (B)**, a partir de la planilla semanal de antigüedad de saldos (punto 48). La pantalla "Cartera" (C) queda para después (`Decisions.md` 25/09/2026).
+    - **A — Situación de la cuenta** (`FEATURE_SITUACION_CUENTA`): reemplaza la columna "Estado" de la planilla. Dice en qué situación está la deuda vieja del cliente y quién la tiene.
+      - **Valores:** lista fija en `shared/situacion_cuenta.py`, que viaja en el GET: Gestión CC, Acuerdo CC, Gestión Vendedor, Gestión Directorio, Abogados, Incobrable, Clearing, Canje, Saldo pendiente descontar, RR.HH, Negocio exterior. `null` = sin situación especial.
+      - **Tabla:** `crm_situacion_cuenta`, aplicada el 25/09/2026 con OK de Líber. Una fila por cliente, con clave consolidada igual que la Bitácora; sin fila = `null`.
+      - **Endpoints:** `GET`/`PUT /api/clientes/{card_code}/situacion`.
+      - **Cada cambio** genera el evento automático "Situación de la cuenta" (`nota` "anterior → nueva") en `crm_eventos`. Aparece en la Bitácora.
+      - **Atomicidad:** la fila y el evento van en **un solo commit**. `guardar`/`borrar`/`crear_evento` aceptan `commit=False`; la Bitácora sigue con commit propio.
+      - **Concurrencia:** la relectura va con `UPDLOCK, HOLDLOCK` y el upsert con `MERGE WITH (HOLDLOCK)`, así dos PUT simultáneos no generan eventos duplicados. **Esto depende de que pyodbc no esté en autocommit.** Si lo estuviera, `actualizar` falla con un error explícito; también queda comentado en `db.py`.
+      - **Hora del evento:** se toma después del SELECT bloqueante.
+      - **Nombre de quien actualizó:** `actualizada_por_nombre` sale de `usuarios_sap`. Si no se encuentra, va `null` y el frontend muestra la parte del UPN antes de la @.
+      - **Frontend:** en el encabezado de Cliente 360:
+        - sin situación, una píldora punteada "Definir situación"; mientras carga se muestra deshabilitada, para que el encabezado no salte;
+        - con situación, una etiqueta "Situación: X ▾", en riesgo para Abogados, Incobrable y Clearing;
+        - selector sin confirmación (el cambio queda en el historial), con roving tabindex; en celular es una hoja inferior.
+      - **Uso previsto:** "Mi día" y "Cartera" la usarán para no mandar a gestionar como al resto a un cliente en Abogados o Incobrable.
+    - **B — Antigüedad de saldos** (`FEATURE_ANTIGUEDAD_SALDOS`): bloque en el Resumen, solo frontend (`antiguedad.ts`).
+      - **Cálculo:** sale de las filas del Estado de cuenta ya consolidado. Tramos: a vencer (días ≤ 0), 0-30, 31-60, 61-90, 91-120, 121+.
+      - **"Más de 61 días"** va destacado: es la cifra que sigue el equipo.
+      - **Monedas:** una tarjeta por moneda, sin sumarlas nunca. El total cuadra con el saldo corrido.
+      - **Saldos negativos:** entran en su tramo según su fecha.
+      - **Montos:** enteros, con aclaración de redondeo.
+      - **Validación pendiente en el piloto:** las supervisoras comparan contra el corte del viernes de su planilla.
+    - **"Hoy" en Montevideo** en todo Cliente 360: `src/utils/fechas.ts` (`hoyUruguay`, `diaCalendario`), usado por `facturaVencida`, `resumenSaldos` (atraso actual), la antigüedad y la situación. Antes, entre las 21 y las 24 h de Uruguay, las facturas figuraban vencidas y con atraso un día antes. La Bitácora usa la zona del navegador, que está bien para usuarios en Uruguay.
+    - **Validador:** con observaciones, todas corregidas. El cuadre exacto de los enteros redondeados queda aceptado.
+    - Tests: 500 backend, 306 frontend.
 
 ## 10. Gotchas ya pagados
 

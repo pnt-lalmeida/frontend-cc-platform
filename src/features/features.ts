@@ -8,7 +8,9 @@ export type FeatureNombre =
   | "bitacora"
   | "promesas"
   | "mi_dia"
-  | "riesgo_bloqueo";
+  | "riesgo_bloqueo"
+  | "situacion_cuenta"
+  | "antiguedad_saldos";
 
 export type EtapaFeature = "off" | "piloto" | "todos";
 

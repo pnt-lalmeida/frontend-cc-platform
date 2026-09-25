@@ -111,7 +111,35 @@ body {
   border: 0;
 }
 
+/* Situacion de la cuenta (Fase A CRM): control del encabezado de Cliente 360.
+   Sin situacion es un control punteado que solo toma color al pasar. */
+.situacion-vacia:hover,
+.situacion-vacia[aria-expanded="true"] {
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+}
+.situacion-disparador:focus-visible,
+.situacion-opcion:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.situacion-opcion:hover:not(:disabled):not([aria-checked="true"]) {
+  background: var(--color-paper) !important;
+}
+
 @media (max-width: 720px) {
+  /* Situacion de la cuenta: en celular el selector es una hoja abajo, a lo
+     ancho, para que nunca se salga de la pantalla. */
+  .situacion-popover {
+    position: fixed !important;
+    top: auto !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 12px !important;
+    width: auto !important;
+    max-height: 75vh;
+    overflow-y: auto;
+  }
   .alertas-panel {
     position: fixed !important;
     inset: 0 !important;

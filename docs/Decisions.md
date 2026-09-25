@@ -250,3 +250,16 @@ Historial de decisiones. **Append-only: nunca se reescribe una entrada vieja.** 
   - una carrera de segundos entre el timer y una decisión, que se corrige sola en la corrida siguiente.
 
 **Validador:** encontró que el aviso de reautorización se perdía si fallaba la primera escritura a SAP. Está corregido con tests.
+
+### 25/09/2026 — Planilla de antigüedad de saldos: se incorporan "Situación de la cuenta" y "Antigüedad de saldos"; la pantalla "Cartera" queda para después
+**Decisión de Líber:** tras la interpretación de la planilla semanal de antigüedad de saldos (`Architecture.md` punto 48), se implementan ahora:
+- **A — Situación de la cuenta:** reemplaza la columna "Estado". Es una lista fija por cliente, con el historial de cambios en la Bitácora.
+- **B — Antigüedad de saldos en el Resumen de Cliente 360:** tramos a vencer, 0-30, 31-60, 61-90, 91-120 y 121+, con la deuda de más de 61 días destacada. Sale del Estado de cuenta ya consolidado, sin consultas nuevas.
+
+Las dos van con su flag, en piloto.
+
+**Queda anotada para después — C, pantalla "Cartera":** reemplaza la planilla completa.
+- Contenido: todas las cuentas con tramos, situación, vendedor y zona; filtros; totales por moneda; variación semanal de la deuda de más de 61 días; clic a Cliente 360; exportación a Excel.
+- Necesita una consulta a HANA de toda la cartera y un corte semanal guardado en Azure SQL (la variación arranca desde el primer corte).
+- Queda por decidir el día y la hora del corte, y si se muestra un total consolidado con tipo de cambio.
+- Orden sugerido: antes de "Mi día", que puede reusar su consulta.

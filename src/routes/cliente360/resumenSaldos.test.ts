@@ -59,4 +59,11 @@ describe("calcularResumenFacturas", () => {
     expect(resumen.saldoVencido).toBe(0);
     expect(resumen.pctAlDia).toBe(100);
   });
+
+  it("el atraso se cuenta con el 'hoy' de Montevideo, no UTC", () => {
+    // 22 h del 18/09 en Uruguay = 01 h del 19/09 en UTC: el atraso sigue siendo 17 dias.
+    const alaNocheEnUruguay = new Date("2026-09-19T01:00:00Z");
+    const resumen = calcularResumenFacturas([factura({ doc_due_date: "2026-09-01T00:00:00Z" })], alaNocheEnUruguay);
+    expect(resumen.atrasoActualDias).toBe(17);
+  });
 });
