@@ -202,6 +202,7 @@ export function Cliente360Page() {
   } = useFichaCliente(cardCodeSeleccionado);
   const {
     filas: estadoCuenta,
+    pagadorCentral: pagadorCentralEstadoCuenta,
     loading: cargandoEstadoCuenta,
     error: errorEstadoCuenta,
   } = useEstadoCuenta(cardCodeSeleccionado);
@@ -632,6 +633,23 @@ export function Cliente360Page() {
                 {errorEstadoCuenta && <p style={{ color: "var(--color-risk)" }}>{errorEstadoCuenta}</p>}
                 {cargandoEstadoCuenta && (
                   <p style={{ color: "var(--color-muted)" }}>Cargando estado de cuenta...</p>
+                )}
+                {!cargandoEstadoCuenta && !errorEstadoCuenta && pagadorCentralEstadoCuenta && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      marginBottom: 12,
+                      background: "var(--color-accent-soft)",
+                      borderRadius: 8,
+                      fontSize: 12.5,
+                      color: "var(--color-accent-ink)",
+                    }}
+                  >
+                    <strong>Estado de cuenta consolidado del pagador central</strong>{" "}
+                    {pagadorCentralEstadoCuenta.card_code}
+                    {pagadorCentralEstadoCuenta.card_name ? ` · ${pagadorCentralEstadoCuenta.card_name}` : ""}. Esta
+                    cuenta la paga otra: se muestran los documentos de todas las cuentas que paga ese pagador.
+                  </div>
                 )}
                 {!cargandoEstadoCuenta && !errorEstadoCuenta && estadoCuenta.length === 0 && (
                   <p style={{ color: "var(--color-muted)" }}>Sin movimientos registrados.</p>

@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../api/client";
-import type { EstadoCuentaFila, EstadoCuentaResponse } from "../../api/types";
+import type { EstadoCuentaFila, EstadoCuentaResponse, PagadorCentral } from "../../api/types";
 import { useAccessToken } from "../../auth/useAccessToken";
 
 interface EstadoDeCuenta {
   filas: EstadoCuentaFila[];
+  pagadorCentral: PagadorCentral | null;
   loading: boolean;
   error: string | null;
 }
 
 const ESTADO_VACIO: EstadoDeCuenta = {
   filas: [],
+  pagadorCentral: null,
   loading: false,
   error: null,
 };
@@ -37,10 +39,15 @@ export function useEstadoCuenta(cardCode: string | null): EstadoDeCuenta {
           { token }
         );
         if (cancelado) return;
-        setEstado({ filas: respuesta.estado_cuenta, loading: false, error: null });
+        setEstado({
+          filas: respuesta.estado_cuenta,
+          pagadorCentral: respuesta.pagador_central ?? null,
+          loading: false,
+          error: null,
+        });
       } catch {
         if (cancelado) return;
-        setEstado({ filas: [], loading: false, error: "No se pudo cargar el estado de cuenta." });
+        setEstado({ filas: [], pagadorCentral: null, loading: false, error: "No se pudo cargar el estado de cuenta." });
       }
     }
 

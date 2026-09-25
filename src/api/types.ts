@@ -26,7 +26,7 @@ export interface FichaCliente {
   condicion_pago: string | null;
   suspendido: boolean;
   zona_ctas_ctes: string | null;
-  pagador_central: { card_code: string; card_name: string | null } | null;
+  pagador_central: PagadorCentral | null;
   cuentas_relacionadas: FichaCliente[];
 }
 
@@ -96,8 +96,15 @@ export interface EstadoCuentaFila {
   saldo_corrido: number;
 }
 
+export interface PagadorCentral {
+  card_code: string;
+  card_name: string | null;
+}
+
 export interface EstadoCuentaResponse {
   estado_cuenta: EstadoCuentaFila[];
+  // Cuenta hija: el estado de cuenta es el consolidado de su pagador central.
+  pagador_central?: PagadorCentral | null;
 }
 
 export interface ChequesResumen {
