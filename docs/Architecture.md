@@ -509,7 +509,7 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
       - polling cada 5 minutos solo con la pestaña visible, y al volver el foco.
     - **Validador:** aprobado con observaciones, corregidas; los dos costos aceptados figuran arriba.
     - Tests: 445 backend, 226 frontend.
-    - **Al promover a producción:** el timer corre solo en Azure. Con `FEATURE_ALERTAS` en `piloto`, su primera corrida hace el arranque en cero.
+    - **Al promover a producción:** el timer corre solo en Azure. Con `FEATURE_ALERTAS` en `piloto`, su primera corrida hace el arranque en cero **siempre que `crm_alertas` no tenga ninguna fila `pedido_bloqueado`**. Ojo en local: HANA apunta a TEST y Azure SQL a la base real, así que correr `tareas-programadas/ejecutar` en local carga alertas de pedidos de TEST en la tabla real y arruina el arranque. Antes de promover hay que verificar que la tabla esté vacía (o limpiarla).
 
 ## 10. Gotchas ya pagados
 
