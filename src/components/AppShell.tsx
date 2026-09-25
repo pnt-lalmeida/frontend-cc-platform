@@ -1,6 +1,7 @@
 import { useMsal } from "@azure/msal-react";
 import { NavLink, Outlet } from "react-router-dom";
-import { FeaturesProvider } from "../features/FeaturesContext";
+import { FeaturesProvider, useFeatures } from "../features/FeaturesContext";
+import { CampanaAlertas } from "./alertas/CampanaAlertas";
 
 export function AppShell() {
   return (
@@ -12,6 +13,7 @@ export function AppShell() {
 
 function AppShellContenido() {
   const { instance, accounts } = useMsal();
+  const { habilitada } = useFeatures();
   const account = instance.getActiveAccount() ?? accounts[0];
   const nombre = account?.name ?? account?.username ?? "";
 
@@ -50,6 +52,7 @@ function AppShellContenido() {
           </NavLink>
         </nav>
         <div style={{ flex: 1 }} />
+        {habilitada("alertas") && <CampanaAlertas />}
         <div style={{ fontSize: 12.5, color: "var(--color-muted)" }}>{nombre}</div>
         <button
           onClick={logout}

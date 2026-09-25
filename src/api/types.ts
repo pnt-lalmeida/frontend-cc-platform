@@ -276,3 +276,44 @@ export interface CrearRecordatorioRequest {
 export interface CompletarTareaRequest {
   estado: "completada";
 }
+
+// Fase 2 CRM (25/09/2026): Centro de alertas. Lista compartida por todo el
+// equipo de cobranza: marcar vista o resuelta vale para todos.
+export type TipoAlerta = "pedido_bloqueado" | "pedido_reabierto" | "riesgo_bloqueo" | "promesa_incumplida";
+
+export type EstadoAlerta = "nueva" | "vista" | "resuelta";
+
+export interface Alerta {
+  id: number;
+  tipo: TipoAlerta;
+  descripcion: string;
+  card_code: string | null;
+  numero_sn: string | null;
+  // "pedido:<doc_entry>" | null
+  entidad_ref: string | null;
+  fecha_utc: string;
+  estado: EstadoAlerta;
+  vista_por: string | null;
+  vista_utc: string | null;
+  resuelta_por: string | null;
+  resuelta_utc: string | null;
+}
+
+// GET /api/alertas
+export interface AlertasResponse {
+  no_vistas: number;
+  abiertas: Alerta[];
+  resueltas_recientes: Alerta[];
+  // Para mostrar nombres en vez de UPN ("Resuelta por Rosina"). Puede venir vacio.
+  equipo: MiembroEquipo[];
+}
+
+// PATCH /api/alertas/{id}
+export interface ActualizarAlertaRequest {
+  estado: "vista" | "resuelta";
+}
+
+// POST /api/alertas/marcar-vistas
+export interface MarcarVistasResponse {
+  marcadas: number;
+}

@@ -81,7 +81,51 @@ body {
   grid-area: historial;
 }
 
+/* Centro de alertas (Fase 2 CRM): campana del header y su panel. En
+   escritorio el panel es un desplegable anclado a la campana; en mobile es
+   una hoja a pantalla completa con boton de cerrar. */
+.alertas-campana:hover {
+  background: var(--color-paper) !important;
+}
+.alertas-campana:focus-visible,
+.alertas-panel button:focus-visible,
+.alertas-resueltas summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.alertas-accion:hover:not(:disabled) {
+  background: var(--color-paper) !important;
+}
+.alertas-cerrar-mobile {
+  display: none;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 720px) {
+  .alertas-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    width: auto !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    z-index: 70 !important;
+  }
+  .alertas-cerrar-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
   .app-header {
     padding: 0 14px !important;
     gap: 14px !important;

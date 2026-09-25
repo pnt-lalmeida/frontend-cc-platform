@@ -239,3 +239,14 @@ Historial de decisiones. **Append-only: nunca se reescribe una entrada vieja.** 
 **Bitácora:** Líber la probó en local y "se ve bien por ahora". Tildar una tarea sigue sin confirmación hasta que el piloto diga lo contrario.
 
 **Planilla de antigüedad de saldos:** Líber compartió la planilla semanal de antigüedad de saldos como referencia, para interpretarla y no para copiarla. Su estructura está en `Architecture.md` punto 48; los datos no se documentan (Ley 18.331).
+
+### 25/09/2026 — CRM liviano Fase 2 (Centro de alertas) implementada
+**Implementada** según las dos decisiones de Líber de esta misma fecha: arranque en cero y lista compartida. Detalle en `Architecture.md` punto 51.
+**Criterios del orquestador:**
+- una alerta de bloqueo por pedido, para siempre;
+- la moneda aparece como la trae HANA;
+- dos costos aceptados:
+  - un SELECT extra por pedido en la decisión múltiple con la flag activa;
+  - una carrera de segundos entre el timer y una decisión, que se corrige sola en la corrida siguiente.
+
+**Validador:** encontró que el aviso de reautorización se perdía si fallaba la primera escritura a SAP. Está corregido con tests.

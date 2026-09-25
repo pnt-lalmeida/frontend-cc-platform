@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api/client";
 import type {
   AdjuntoRequest,
@@ -78,6 +79,9 @@ export function BandejaPage() {
   const [opcionAprobarMultiple, setOpcionAprobarMultiple] = useState<(typeof OPCIONES_APROBAR)[number] | null>(null);
   const [archivoAdjuntoMultiple, setArchivoAdjuntoMultiple] = useState<File | null>(null);
   const [errorAdjuntoMultiple, setErrorAdjuntoMultiple] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pedidoParam = searchParams.get("pedido");
+  const [scrollAPedido, setScrollAPedido] = useState<number | null>(null);
 
   const candidatosOrdenados = useMemo(() => ordenarPorFechaDesc(candidatos), [candidatos]);
   const candidatosFiltrados = useMemo(
@@ -239,6 +243,48 @@ export function BandejaPage() {
     setMensajeExito(null);
     limpiarError();
   }
+
+  // Centro de alertas (Fase 2 CRM): "Ver pedido" abre /bandeja?pedido=<doc_entry>.
+  // Si el pedido esta en la cola se selecciona y se lleva a la vista; si no, se
+  // ve la Bandeja normal. El parametro se saca de la URL una vez usado.
+  useEffect(() => {
+    if (!pedidoParam || loading) return;
+    const docEntry = Number(pedidoParam);
+    const candidato = candidatos.find((c) => c.doc_entry != null && c.doc_entry === docEntry);
+    if (candidato) {
+      if (filtroEstado !== "Todos" && candidato.status_aprobacion !== filtroEstado) setFiltroEstado("Todos");
+      if (!coincideBusqueda(candidato, busqueda)) setBusqueda("");
+      if (candidato.card_code) {
+        const clave = candidato.card_code;
+        setGruposColapsados((previo) => {
+          if (!previo.has(clave)) return previo;
+          const nuevo = new Set(previo);
+          nuevo.delete(clave);
+          return nuevo;
+        });
+      }
+      seleccionar(candidato);
+      setScrollAPedido(docEntry);
+    }
+    setSearchParams(
+      (previo) => {
+        const nuevo = new URLSearchParams(previo);
+        nuevo.delete("pedido");
+        return nuevo;
+      },
+      { replace: true }
+    );
+    // Omite a proposito filtroEstado, busqueda y seleccionar: el parametro se
+    // consume una sola vez (se borra de la URL arriba). Si esos cambiaran
+    // despues, el efecto no tiene que volver a correr ni pisar lo que eligio
+    // el usuario.
+  }, [pedidoParam, loading, candidatos]);
+
+  useEffect(() => {
+    if (scrollAPedido == null) return;
+    document.querySelector(`[data-doc-entry="${scrollAPedido}"]`)?.scrollIntoView?.({ block: "center" });
+    setScrollAPedido(null);
+  }, [scrollAPedido]);
 
   function elegirArchivo(archivo: File | null) {
     setErrorAdjunto(null);
@@ -883,6 +929,7 @@ function FilaCola({
 }) {
   return (
     <div
+      data-doc-entry={candidato.doc_entry ?? undefined}
       onClick={procesando ? undefined : onClick}
       style={{
         padding: "14px 18px 14px 12px",

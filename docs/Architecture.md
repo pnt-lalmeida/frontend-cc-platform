@@ -474,6 +474,42 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
       - test de render de `Cliente360Page` con la flag apagada y encendida.
     - **Fuera de esta etapa:** no se conecta al envío automático de estados de cuenta ni al sistema de recordatorios existente (bloqueante del doc de gap). Las cuentas hijas con SN propio distinto del consolidado no suman sus decisiones de la Bandeja.
     - Tests: 355 backend, 171 frontend.
+51. **`IMPLEMENTADO 25/09/2026 (piloto)` — CRM liviano, Fase 2: Centro de alertas.** Campana en el header, detrás de `FEATURE_ALERTAS`. **Primer timer trigger del proyecto.**
+    - **Tipos en esta fase:** `pedido_bloqueado` y `pedido_reabierto`. `riesgo_bloqueo` y `promesa_incumplida` quedan en el modelo para las Fases 5 y 4. No se agregan otros sin validarlo con el sector.
+    - **Decisiones de Líber:**
+      - **arranque en cero:** la primera corrida, cuando no hay ninguna alerta `pedido_bloqueado` en la tabla, registra los pedidos bloqueados de ese momento como `vista` / "sistema (arranque)", sin avisar;
+      - **lista compartida:** marcar vista o resuelta vale para todo el equipo y registra quién y cuándo.
+    - **`pedido_bloqueado`:**
+      - una alerta por pedido para siempre (clave `pedido_bloqueado:<doc_entry>`): si el pedido vuelve a bloquearse, no se avisa de nuevo;
+      - solo candidatos en estado `Pendiente`;
+      - se resuelve sola (`resuelta_por = "sistema"`) cuando el pedido deja de estar pendiente, o cuando alguien lo decide en la Bandeja (queda registrado ese usuario).
+    - **`pedido_reabierto`:** un pedido rechazado que se autoriza (reconsideración, punto 45). La clave lleva el timestamp de la decisión nueva. También se emite si la primera escritura a SAP falla: el hook relee la decisión guardada. El reintento no la duplica.
+    - **Hook en la decisión (individual y múltiple):**
+      - lee la decisión anterior, y después de `procesar_decision` corre `alertas.al_decidir`;
+      - **aislado**: cualquier error se loguea y la respuesta de la decisión no cambia;
+      - comparte la conexión de la Bandeja (contextvar de `db`). Es seguro porque `save_decision` ya commiteó antes; hay un test con un error SQL real del hook;
+      - con la etapa en `off` no hace nada, ni siquiera la lectura previa;
+      - **costo aceptado:** con la flag activa, la múltiple suma un SELECT por pedido antes de escribir a SAP.
+    - **Timer `tareas_programadas_crm`:**
+      - `0 0 10-23 * * 1-5` UTC, es decir, cada hora de 7 a 20 hs de Montevideo, de lunes a viernes;
+      - no corre con la etapa en `off` y no relanza errores;
+      - consulta HANA primero y después abre una sola conexión a Azure SQL;
+      - en local está deshabilitado (`AzureWebJobs.tareas_programadas_crm.Disabled=true`, para no depender de Azurite). Para probarlo a mano: `POST /api/crm/tareas-programadas/ejecutar` (solo `CC.Supervisor`, 403 si no);
+      - **carrera aceptada:** si un pedido se decide justo mientras corre, su alerta puede quedar abierta hasta la hora siguiente.
+    - **Endpoints:**
+      - `GET /api/alertas` → `{no_vistas, abiertas (≤200), resueltas_recientes (7 días, ≤20), equipo}`;
+      - `PATCH /api/alertas/{id}` (`vista`/`resuelta`, UPDATE condicional; `vista` es idempotente incluso en carrera);
+      - `POST /api/alertas/marcar-vistas`.
+      El alta es idempotente con `INSERT … WHERE NOT EXISTS` más la captura de la violación del UNIQUE (solo 2627/2601).
+    - **Frontend:**
+      - `CampanaAlertas` en `AppShell`, con un badge "no vistas" en el color de acento (los bloqueos son trabajo diario, no emergencias);
+      - panel desplegable en escritorio y hoja a pantalla completa en celular (con `aria-modal` y foco atrapado);
+      - las alertas nuevas se destacan, las resueltas quedan colapsadas con "Resuelta por <nombre>" o "El pedido ya no está bloqueado";
+      - "Ver pedido" abre la Bandeja con `?pedido=<doc_entry>` (lo selecciona, expande su grupo y hace scroll);
+      - polling cada 5 minutos solo con la pestaña visible, y al volver el foco.
+    - **Validador:** aprobado con observaciones, corregidas; los dos costos aceptados figuran arriba.
+    - Tests: 445 backend, 226 frontend.
+    - **Al promover a producción:** el timer corre solo en Azure. Con `FEATURE_ALERTAS` en `piloto`, su primera corrida hace el arranque en cero.
 
 ## 10. Gotchas ya pagados
 
