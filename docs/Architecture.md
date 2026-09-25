@@ -444,7 +444,7 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **Endpoints** (todos con 404 si la funcionalidad no está habilitada para el usuario):
       - `GET /api/clientes/{card_code}/bitacora` → `{cliente, motivos, canales, equipo, tareas, eventos}`;
       - `POST .../bitacora/eventos` (gestión manual) y `POST .../bitacora/tareas` (recordatorio) → 201;
-      - `PATCH /api/tareas/{id}` con `{"estado": "completada"}`.
+      - `PATCH /api/bitacora/tareas/{id}` con `{"estado": "completada"}`.
     - **Clave:** `numero_sn` consolidado (`cliente_360.consolidacion_de`), o `card_code` si no hay SN. Una cuenta hija y su pagador central comparten la Bitácora, y la UI lo avisa. Un `card_code` que no existe en SAP da 404 antes de escribir.
     - **Tablas:** `crm_eventos` (inmutable, sin UPDATE ni DELETE) y `crm_tareas`. Las decisiones de la Bandeja aparecen como eventos automáticos **armados en la lectura** desde `bandeja_decisiones`, sin duplicarse en `crm_eventos`. Aparecen con cualquier `sap_status`, porque la decisión la tomó una persona igual.
     - **Motivos:** los 22 del vocabulario real de la planilla semanal (decisión de Líber), en una constante única en `shared/bitacora.py` que viaja en el GET; la UI nunca la duplica. Canales: Llamada, Email, WhatsApp, Visita, Carta, Otro. `equipo` = usuarios activos de `usuarios_sap` (`usuarios_sap.listar_activos()`), para elegir el responsable.
