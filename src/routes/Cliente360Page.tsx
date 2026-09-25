@@ -15,7 +15,7 @@ import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
 import { useFeatures } from "../features/FeaturesContext";
 import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago";
-import { formatDate, formatDateTime, formatMoney, formatMoneyCompact } from "../design/format";
+import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
 import { useVerAdjunto } from "./cliente360/useVerAdjunto";
 import { facturaVencida } from "./cliente360/facturas";
@@ -28,6 +28,12 @@ import { useFichaCliente } from "./cliente360/useFichaCliente";
 import { useSuspendido } from "./cliente360/useSuspendido";
 
 type Pestaña = "resumen" | "facturas" | "pedidos" | "autorizaciones" | "estado-cuenta";
+
+// SAP devuelve OpenChecksBalance con signo negativo (convencion contable); para
+// el usuario es un monto a cobrar, se muestra en positivo.
+function montoCheques(valor: number | null): number | null {
+  return valor == null ? null : Math.abs(valor);
+}
 
 function construirColumnasAutorizaciones(
   onVerAdjunto: (docEntry: number) => void,
@@ -358,11 +364,19 @@ export function Cliente360Page() {
             }}
           >
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, margin: 0 }}>{ficha.card_name}</h2>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--color-muted)" }}>
-                  {ficha.card_code}
-                </span>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                  <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24, margin: 0 }}>{ficha.card_name}</h2>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--color-muted)" }}>
+                    {ficha.card_code}
+                  </span>
+                </div>
+                {ficha.pagador_central && (
+                  <div style={{ fontSize: 12.5, color: "var(--color-muted)", marginTop: 4 }}>
+                    Lo paga <span style={{ fontFamily: "var(--font-mono)" }}>{ficha.pagador_central.card_code}</span>
+                    {ficha.pagador_central.card_name ? ` · ${ficha.pagador_central.card_name}` : ""}
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <StatusTag variant="neutral">Clasificación {ficha.clasificacion_cc ?? "—"}</StatusTag>
@@ -375,7 +389,7 @@ export function Cliente360Page() {
                   ))}
                 {cheques && cheques.cantidad_cheques > 0 && (
                   <StatusTag variant="neutral">
-                    Cheques pendientes: {formatMoney(ficha.cheques_pendientes, ficha.moneda)} ({cheques.cantidad_cheques})
+                    {`Cheques pendientes: ${formatMoneyEntero(montoCheques(ficha.cheques_pendientes), ficha.moneda)} (${cheques.cantidad_cheques})`}
                   </StatusTag>
                 )}
                 <ControlSuspendido
@@ -401,18 +415,18 @@ export function Cliente360Page() {
             >
               <Estadistica
                 etiqueta="Saldo cta. cte."
-                valor={formatMoneyCompact(ficha.current_account_balance, ficha.moneda)}
+                valor={formatMoneyEntero(ficha.current_account_balance, ficha.moneda)}
                 titulo={formatMoney(ficha.current_account_balance, ficha.moneda)}
               />
               <Estadistica
                 etiqueta="Saldo pedidos abiertos"
-                valor={formatMoneyCompact(ficha.open_orders_balance, ficha.moneda)}
+                valor={formatMoneyEntero(ficha.open_orders_balance, ficha.moneda)}
                 titulo={formatMoney(ficha.open_orders_balance, ficha.moneda)}
                 borde
               />
               <Estadistica
                 etiqueta="Saldo vencido"
-                valor={formatMoneyCompact(resumenFacturas.saldoVencido, ficha.moneda)}
+                valor={formatMoneyEntero(resumenFacturas.saldoVencido, ficha.moneda)}
                 titulo={formatMoney(resumenFacturas.saldoVencido, ficha.moneda)}
                 color={resumenFacturas.saldoVencido > 0 ? "var(--color-risk)" : undefined}
                 borde
@@ -430,12 +444,6 @@ export function Cliente360Page() {
               />
               <Estadistica etiqueta="Condición de pago" valor={ficha.condicion_pago ?? "—"} borde />
               <Estadistica etiqueta="Zona ctas. ctes." valor={ficha.zona_ctas_ctes ?? "—"} borde />
-              <Estadistica
-                etiqueta="Pagador central"
-                valor={ficha.pagador_central?.card_code ?? "—"}
-                sub={ficha.pagador_central?.card_name ?? undefined}
-                borde
-              />
             </div>
 
             {facturas.length > 0 && (
@@ -548,7 +556,7 @@ export function Cliente360Page() {
                     {cheques && cheques.cantidad_cheques > 0 ? (
                       <>
                         <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 500 }}>
-                          {formatMoney(ficha.cheques_pendientes, ficha.moneda)}
+                          {formatMoneyEntero(montoCheques(ficha.cheques_pendientes), ficha.moneda)}
                         </div>
                         <div style={{ fontSize: 12.5, color: "var(--color-muted)", marginTop: 4 }}>
                           {cheques.cantidad_cheques} cheque{cheques.cantidad_cheques === 1 ? "" : "s"}
@@ -673,14 +681,12 @@ export function Cliente360Page() {
 function Estadistica({
   etiqueta,
   valor,
-  sub,
   titulo,
   color,
   borde,
 }: {
   etiqueta: string;
   valor: string;
-  sub?: string;
   titulo?: string;
   color?: string;
   borde?: boolean;
@@ -704,24 +710,10 @@ function Estadistica({
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}
-        title={titulo ?? (sub ? `${valor} — ${sub}` : valor)}
+        title={titulo ?? valor}
       >
         {valor}
       </div>
-      {sub && (
-        <div
-          style={{
-            fontSize: 12,
-            color: "var(--color-muted)",
-            marginTop: 2,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {sub}
-        </div>
-      )}
     </div>
   );
 }

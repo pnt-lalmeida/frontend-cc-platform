@@ -4,16 +4,17 @@ const MONEDA_SIMBOLO: Record<string, string> = {
   EUR: "€",
 };
 
-export function formatMoney(
+function formatearConDecimales(
   value: number | null | undefined,
-  moneda: string | null = "UYU"
+  moneda: string | null,
+  decimales: number
 ): string {
   if (value === null || value === undefined) {
     return "—";
   }
   const numero = new Intl.NumberFormat("es-UY", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
   }).format(value);
   if (!moneda) {
     return numero;
@@ -22,35 +23,16 @@ export function formatMoney(
   return `${simbolo} ${numero}`;
 }
 
-// Version abreviada de formatMoney - sin decimales, K/M a partir de miles y
-// millones. Solo para estadisticas "de un vistazo" (ej. grilla de Resumen de
-// Cliente 360) donde el espacio es chico y no hay que decidir sobre el
-// centavo exacto - formatMoney (con los dos decimales completos) sigue
-// siendo la funcion correcta en Bandeja, Facturas, Pedidos, etc.
-export function formatMoneyCompact(
-  value: number | null | undefined,
-  moneda: string | null = "UYU"
-): string {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-  const signo = value < 0 ? "-" : "";
-  const abs = Math.abs(value);
+export function formatMoney(value: number | null | undefined, moneda: string | null = "UYU"): string {
+  return formatearConDecimales(value, moneda, 2);
+}
 
-  let numero: string;
-  if (abs >= 1_000_000) {
-    numero = `${new Intl.NumberFormat("es-UY", { maximumFractionDigits: 1 }).format(abs / 1_000_000)}M`;
-  } else if (abs >= 1_000) {
-    numero = `${new Intl.NumberFormat("es-UY", { maximumFractionDigits: 1 }).format(abs / 1_000)}K`;
-  } else {
-    numero = new Intl.NumberFormat("es-UY", { maximumFractionDigits: 0 }).format(abs);
-  }
-
-  if (!moneda) {
-    return `${signo}${numero}`;
-  }
-  const simbolo = MONEDA_SIMBOLO[moneda] ?? moneda;
-  return `${signo}${simbolo} ${numero}`;
+// Monto completo sin decimales, para estadisticas "de un vistazo" (grilla de
+// Cliente 360, cheques) donde el centavo no cambia ninguna decision. Pedido
+// de Liber 25/09/2026: reemplaza la version abreviada K/M, que no se leia bien.
+// En Bandeja, Facturas, Pedidos, etc. sigue formatMoney con los decimales.
+export function formatMoneyEntero(value: number | null | undefined, moneda: string | null = "UYU"): string {
+  return formatearConDecimales(value, moneda, 0);
 }
 
 export function formatDate(isoDate: string | null | undefined): string {

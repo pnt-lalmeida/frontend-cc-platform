@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatMoney, formatMoneyCompact } from "./format";
+import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "./format";
 
 describe("formatMoney", () => {
   it("formatea UYU con coma decimal y punto de miles", () => {
@@ -32,34 +32,30 @@ describe("formatMoney", () => {
   });
 });
 
-describe("formatMoneyCompact", () => {
-  it("sin decimales por debajo de 1.000", () => {
-    expect(formatMoneyCompact(320.4, "UYU")).toBe("$ 320");
+describe("formatMoneyEntero", () => {
+  it("monto completo con separador de miles y sin decimales", () => {
+    expect(formatMoneyEntero(740755.54, "USD")).toBe("US$ 740.756");
   });
 
-  it("abrevia con K entre 1.000 y 1.000.000, con un decimal si no es redondo", () => {
-    expect(formatMoneyCompact(148560.32, "UYU")).toBe("$ 148,6K");
+  it("redondea al entero mas cercano", () => {
+    expect(formatMoneyEntero(1432730.4, "UYU")).toBe("$ 1.432.730");
   });
 
-  it("abrevia con K sin decimal cuando es un valor redondo", () => {
-    expect(formatMoneyCompact(2000, "UYU")).toBe("$ 2K");
-  });
-
-  it("abrevia con M a partir de 1.000.000", () => {
-    expect(formatMoneyCompact(2500000, "USD")).toBe("US$ 2,5M");
+  it("montos chicos sin separador", () => {
+    expect(formatMoneyEntero(320.4, "UYU")).toBe("$ 320");
   });
 
   it("preserva el signo de un valor negativo", () => {
-    expect(formatMoneyCompact(-148560.32, "UYU")).toBe("-$ 148,6K");
+    expect(formatMoneyEntero(-148560.32, "UYU")).toBe("$ -148.560");
   });
 
   it("devuelve un guion largo para null/undefined", () => {
-    expect(formatMoneyCompact(null)).toBe("—");
-    expect(formatMoneyCompact(undefined)).toBe("—");
+    expect(formatMoneyEntero(null)).toBe("—");
+    expect(formatMoneyEntero(undefined)).toBe("—");
   });
 
   it("no adivina un simbolo cuando la moneda es explicitamente null", () => {
-    expect(formatMoneyCompact(148560.32, null)).toBe("148,6K");
+    expect(formatMoneyEntero(148560.32, null)).toBe("148.560");
   });
 });
 
