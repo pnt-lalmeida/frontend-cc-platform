@@ -9,6 +9,8 @@ import type {
 } from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
+import { useFeatures } from "../features/FeaturesContext";
+import { LineaIndicadoresPago } from "./bandeja/LineaIndicadoresPago";
 import { formatDate, formatMoney } from "../design/format";
 import { agruparPorCliente, type GrupoCliente } from "./bandeja/agrupar";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
@@ -61,6 +63,7 @@ async function archivoAAdjuntoRequest(archivo: File): Promise<AdjuntoRequest> {
 
 export function BandejaPage() {
   const getAccessToken = useAccessToken();
+  const { habilitada, enPiloto } = useFeatures();
   const { candidatos, loading, error, recargar } = useCandidatos();
   const [busqueda, setBusqueda] = useState("");
   const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("Pendiente");
@@ -525,6 +528,14 @@ export function BandejaPage() {
                     <Estadistica etiqueta="Vendedor" valor={seleccionado.vendedor ?? "—"} />
                     <Estadistica etiqueta="Cond. de pago" valor={seleccionado.condicion_pago ?? "—"} />
                   </div>
+
+                  {habilitada("indicadores_pago") && seleccionado.card_code && (
+                    <LineaIndicadoresPago
+                      key={seleccionado.card_code}
+                      cardCode={seleccionado.card_code}
+                      enPiloto={enPiloto("indicadores_pago")}
+                    />
+                  )}
 
                   {seleccionado.cliente_suspendido && (
                     <p>

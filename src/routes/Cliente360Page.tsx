@@ -13,6 +13,8 @@ import type {
 import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
+import { useFeatures } from "../features/FeaturesContext";
+import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago";
 import { formatDate, formatDateTime, formatMoney, formatMoneyCompact } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
 import { useVerAdjunto } from "./cliente360/useVerAdjunto";
@@ -166,6 +168,7 @@ const COLUMNAS_ESTADO_CUENTA: TableColumn<EstadoCuentaFila>[] = [
 
 export function Cliente360Page() {
   const getAccessToken = useAccessToken();
+  const { habilitada, enPiloto } = useFeatures();
   const [cardCodeSeleccionado, setCardCodeSeleccionado] = useState<string | null>(null);
   const [pestañaActiva, setPestañaActiva] = useState<Pestaña>("resumen");
 
@@ -534,6 +537,9 @@ export function Cliente360Page() {
                 </div>
 
                 <div>
+                  {habilitada("indicadores_pago") && (
+                    <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
+                  )}
                   <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
                     Cheques pendientes
                   </p>

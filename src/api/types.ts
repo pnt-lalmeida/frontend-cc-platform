@@ -173,3 +173,25 @@ export interface ResultadoDecisionMultipleApi {
 export interface DecisionMultipleResponse {
   resultados: ResultadoDecisionMultipleApi[];
 }
+
+// Fase 1 CRM (25/09/2026): GET /api/clientes/{card_code}/indicadores?ventana=6|12.
+// Consolidado por cliente (U_NumeroSN + FatherCard), no por cuenta C1/C2.
+export type TendenciaPago = "mejora" | "empeora" | "estable";
+
+export interface IndicadoresPagoAnterior {
+  dias_para_cobrar: number;
+  dias_atraso: number;
+  facturas_consideradas: number;
+}
+
+export interface IndicadoresPago {
+  ventana_meses: 6 | 12;
+  historial_suficiente: boolean;
+  minimo_facturas: number;
+  facturas_consideradas: number;
+  dias_para_cobrar: number | null;
+  // Negativo = paga antes del vencimiento.
+  dias_atraso: number | null;
+  tendencia: TendenciaPago | null;
+  anterior: IndicadoresPagoAnterior | null;
+}

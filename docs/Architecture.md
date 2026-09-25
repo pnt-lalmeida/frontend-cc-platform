@@ -413,6 +413,31 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **Planilla semanal de seguimiento** (referencia, fuera de git; solo se documenta estructura, nunca datos): una hoja por día hábil, copiada de la del mismo día de la semana anterior. Columnas: código, número SN, nombre, razón social, pendiente en cuenta corriente, condición de pago, zona, moneda, saldo vencido, observaciones de la semana anterior (traídas por búsqueda), observaciones de hoy (lista desplegable) y fecha de pago. ~200 filas por día, que coincide con las cuentas del día con saldo ≠ 0 (≈34% con vencido). **Usan 21 valores de "observación"**, más finos que los 6 motivos que propone el documento (ej. "Consultamos por pago", "Envío estado de cuenta", "Enviar ec semana que viene", "Pago coordinado", "Cobra vendedor", "Diferencia/Reclamo/NC", "Se cobra fijo en la semana", "Transfiere", "Pagó", "Calendario de pago"...). La columna "Fecha de pago" está **vacía en las 611 filas**: hoy las promesas no se registran con fecha. Orden de trabajo: por zona (primero los `-M` manuales), después por número; se filtran los que tienen vencido.
     - **Detección de bloqueo:** la SQL real no usa `U_DiasToleranciaCC` (bloquea ante cualquier saldo vencido). La alerta preventiva no depende de la semántica de tolerancia; alcanza con una copia con `:FechaRef`.
 
+49. **`IMPLEMENTADO 25/09/2026 (piloto)` — CRM liviano, Fase 1: indicadores de comportamiento de pago.** `GET /api/clientes/{card_code}/indicadores?ventana=6|12`, detrás de `FEATURE_INDICADORES_PAGO`. Primera fase construida con el esquema de agentes (Investigador, backend y frontend en paralelo sobre un contrato de API fijado por el orquestador, más un Validador que revisa antes de integrar).
+    - **SQL** (`sql/indicadores_pago_cliente.sql`, solo lectura, diseñada y validada contra producción por el Investigador): una fila por "parte" de cada factura saldada.
+      - Sale de las **reconciliaciones** (`OITR`/`ITR1`), no del pago aplicado directo (punto 48).
+      - Reparto FIFO por fecha contable dentro de cada reconciliación. El reparto proporcional generaba 900 mil filas y fechas imposibles.
+      - Los asientos de cambio de moneda (Deudores $ ↔ USD) se siguen un nivel hasta el pago real. Se excluye el ajuste automático 321.
+      - `ImporteFactura = DocTotal + WTSum`, porque lo conciliado incluye la retención.
+      - Consolidación con la cuenta padre dentro de la SQL.
+      - Tiempo: 0,1–2,3 s por cliente; el cliente más grande (~10.000 facturas/año) tarda 4,3 s con ventana de 12 meses. La primera ejecución compila el plan.
+    - **Decisiones de Líber:**
+      - fecha de cobro = promedio ponderado por monto de las fechas reales de pago;
+      - **cheques diferidos a su vencimiento** (`RCT1.DueDate`), ponderados con el resto del pago. En clientes que pagan con cheque diferido esto sube los indicadores 30–60 días; en los que pagan por transferencia, unos 2;
+      - **resguardos cuentan como cobro**;
+      - notas de crédito y `otro` (redondeos, 0,01% del monto) no cuentan;
+      - los pagos anteriores a la emisión cuentan en la fecha de emisión.
+    - **Cálculo** (`shared/indicadores.py`, puro):
+      - ponderación **en pesos** (`ImporteParteUYU`), para poder mezclar facturas UYU y USD de un mismo cliente;
+      - ventanas `(hoy−v, hoy]` y `(hoy−2v, hoy−v]`;
+      - "sin historial suficiente" por debajo de `INDICADORES_MINIMO_FACTURAS` (default 5);
+      - tendencia sobre el atraso, con umbral `INDICADORES_UMBRAL_TENDENCIA_DIAS` (default 3), calculada sobre los valores redondeados. Un bug de punto flotante justo en el umbral lo encontró el Validador y está corregido;
+      - "hoy" en hora de Uruguay (UTC−3 fijo), no UTC.
+    - **Bug de consolidación encontrado al probar de punta a punta:** 2.571 cuentas hijas de un "pagador central" consolidan con el SN del padre en las SQL. Consultar con el SN propio devolvía vacío (un cliente con 165 facturas daba 0). Se agregó `cliente_360.get_numero_sn_consolidado`, que replica `COALESCE(padre.U_NumeroSN, U_NumeroSN)`, y lo usan los indicadores. **El Estado de cuenta en producción (`get_estado_cuenta_endpoint`) tiene el mismo problema** (usa `get_numero_sn`): pendiente de decisión de Líber para arreglarlo aparte.
+    - **Frontend:** bloque "Comportamiento de pago" en el Resumen de Cliente 360 (días para cobrar, atraso con chip de tendencia, selector 6/12 meses, "sin historial suficiente", badge "Piloto") y una línea de contexto en el detalle de la Bandeja que nunca bloquea la decisión. Sin la funcionalidad habilitada no se monta ni se hace el fetch.
+    - **Abierto:** cheques rechazados no detectables de forma simple (257 en 12 meses, sin vínculo directo con el recibo). Las cuentas de resguardo están fijadas por patrón (`1-1-3-00_-900`, `1-1-4-010-%`): confirmar con Alejandro por el rediseño contable. Además, facturas pagadas con cheques que todavía no vencieron quedan fuera de la ventana actual hasta el vencimiento, lo que es consistente con la decisión.
+    - Tests: 275 backend, 120 frontend.
+
 ## 10. Gotchas ya pagados
 
 Convención recomendada por la guía de arquitectura Azure serverless: cada bug real se documenta acá con la causa raíz, no solo el síntoma — para que no se reintente en otra parte del sistema.
