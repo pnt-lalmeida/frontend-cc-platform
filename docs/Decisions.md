@@ -229,3 +229,13 @@ Historial de decisiones. **Append-only: nunca se reescribe una entrada vieja.** 
 **Criterios fijados por el orquestador en la revisión:** completar una tarea no es atómico con su evento; cualquier usuario del equipo puede completar cualquier tarea; las decisiones de la Bandeja aparecen en la Bitácora sin importar su `sap_status`; la fecha pasada de un recordatorio se bloquea solo en el frontend. Detalle y costo de cada uno en `Architecture.md` punto 50.
 **Pendiente de validar en el piloto:** si tildar una tarea debe pedir confirmación o permitir deshacer. Hoy la completa al instante.
 **Contexto:** construida con el esquema de agentes (backend y frontend en paralelo sobre un contrato fijado por el orquestador y un Validador independiente). El Validador encontró un bug real de frontend, ya corregido con test de regresión.
+
+### 25/09/2026 — Centro de alertas: arranque en cero y lista compartida; MENSUAL-M
+**Decisiones de Líber:**
+1. La primera corrida del Centro de alertas registra los pedidos que ya están bloqueados **como vistos**, sin avisar. Solo avisa de los nuevos desde ahí, así la campana arranca en cero.
+2. **Una sola lista de alertas para todo el equipo.** Si una persona la marca como vista o resuelta, queda así para todos, con registro de quién y cuándo. Es el mismo criterio que la Bandeja.
+3. `MENSUAL-M` = gestión manual una vez al mes (`Architecture.md` punto 48).
+
+**Bitácora:** Líber la probó en local y "se ve bien por ahora". Tildar una tarea sigue sin confirmación hasta que el piloto diga lo contrario.
+
+**Planilla de antigüedad de saldos:** Líber compartió la planilla semanal de antigüedad de saldos como referencia, para interpretarla y no para copiarla. Su estructura está en `Architecture.md` punto 48; los datos no se documentan (Ley 18.331).
