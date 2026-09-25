@@ -1,7 +1,16 @@
 import { useMsal } from "@azure/msal-react";
 import { NavLink, Outlet } from "react-router-dom";
+import { FeaturesProvider } from "../features/FeaturesContext";
 
 export function AppShell() {
+  return (
+    <FeaturesProvider>
+      <AppShellContenido />
+    </FeaturesProvider>
+  );
+}
+
+function AppShellContenido() {
   const { instance, accounts } = useMsal();
   const account = instance.getActiveAccount() ?? accounts[0];
   const nombre = account?.name ?? account?.username ?? "";
