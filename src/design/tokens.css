@@ -55,6 +55,32 @@ body {
   display: none;
 }
 
+/* Cliente 360 > Actividad (Bitacora, Fase 3 CRM). En escritorio el panel
+   Registrar queda a la derecha y fijo al scrollear; en mobile todo va en una
+   columna con Registrar entre las tareas y el historial. */
+.bitacora-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  grid-template-areas:
+    "tareas registrar"
+    "historial registrar";
+  grid-template-rows: auto 1fr;
+  column-gap: 28px;
+  row-gap: 24px;
+  align-items: start;
+}
+.bitacora-area-tareas {
+  grid-area: tareas;
+}
+.bitacora-area-registrar {
+  grid-area: registrar;
+  position: sticky;
+  top: 16px;
+}
+.bitacora-area-historial {
+  grid-area: historial;
+}
+
 @media (max-width: 720px) {
   .app-header {
     padding: 0 14px !important;
@@ -153,5 +179,25 @@ body {
   }
   .c360-hint-desktop {
     display: none;
+  }
+  .bitacora-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "tareas"
+      "registrar"
+      "historial";
+    grid-template-rows: auto;
+    row-gap: 20px;
+  }
+  .bitacora-area-registrar {
+    position: static;
+  }
+  .bitacora-form-fila {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+  }
+  .bitacora-evento {
+    grid-template-columns: 38px 12px 1fr !important;
+    column-gap: 6px !important;
   }
 }

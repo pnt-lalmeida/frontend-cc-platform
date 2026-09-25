@@ -202,3 +202,77 @@ export interface IndicadoresPago {
   tendencia: TendenciaPago | null;
   anterior: IndicadoresPagoAnterior | null;
 }
+
+// Fase 3 CRM (25/09/2026): Bitacora de gestion. GET /api/clientes/{card_code}/bitacora.
+// La clave es el N.º SN consolidado: una cuenta hija y su pagador central
+// comparten la misma Bitacora.
+export interface BitacoraPagadorCentral {
+  card_code: string;
+  card_name: string | null;
+}
+
+export interface BitacoraCliente {
+  numero_sn: string | null;
+  pagador_central?: BitacoraPagadorCentral | null;
+}
+
+export interface MiembroEquipo {
+  upn: string;
+  nombre: string;
+}
+
+export type EstadoTarea = "pendiente" | "completada";
+
+export interface TareaBitacora {
+  id: number;
+  descripcion: string;
+  // YYYY-MM-DD, sin hora.
+  fecha_objetivo: string;
+  estado: EstadoTarea;
+  responsable: string;
+  creada_por: string;
+  creada_utc: string;
+  completada_utc: string | null;
+}
+
+export type TipoEventoBitacora = "manual" | "automatico";
+
+export interface EventoBitacora {
+  // null en los automaticos derivados de decisiones de la Bandeja (se arman en la lectura).
+  id: number | null;
+  tipo: TipoEventoBitacora;
+  canal: string | null;
+  resultado: string;
+  nota: string | null;
+  origen: string;
+  fecha_utc: string;
+  // "decision:<doc_entry>" | "tarea:<id>" | null
+  referencia: string | null;
+  // null en "Recordatorio completado" (las tareas son del cliente, no de una cuenta).
+  card_code: string | null;
+}
+
+export interface BitacoraResponse {
+  cliente: BitacoraCliente;
+  motivos: string[];
+  canales: string[];
+  equipo: MiembroEquipo[];
+  tareas: TareaBitacora[];
+  eventos: EventoBitacora[];
+}
+
+export interface RegistrarGestionRequest {
+  resultado: string;
+  canal?: string;
+  nota?: string;
+}
+
+export interface CrearRecordatorioRequest {
+  descripcion: string;
+  fecha_objetivo: string;
+  responsable?: string;
+}
+
+export interface CompletarTareaRequest {
+  estado: "completada";
+}

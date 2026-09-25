@@ -14,6 +14,8 @@ import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
 import { useFeatures } from "../features/FeaturesContext";
+import { useUsuarioActual } from "../auth/useUsuarioActual";
+import { BitacoraActividad } from "./cliente360/BitacoraActividad";
 import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago";
 import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
@@ -27,7 +29,7 @@ import { useEstadoCuenta } from "./cliente360/useEstadoCuenta";
 import { useFichaCliente } from "./cliente360/useFichaCliente";
 import { useSuspendido } from "./cliente360/useSuspendido";
 
-type Pestaña = "resumen" | "facturas" | "pedidos" | "autorizaciones" | "estado-cuenta";
+type Pestaña = "resumen" | "facturas" | "pedidos" | "autorizaciones" | "estado-cuenta" | "actividad";
 
 // SAP devuelve OpenChecksBalance con signo negativo (convencion contable); para
 // el usuario es un monto a cobrar, se muestra en positivo.
@@ -177,6 +179,17 @@ export function Cliente360Page() {
   const { habilitada, enPiloto } = useFeatures();
   const [cardCodeSeleccionado, setCardCodeSeleccionado] = useState<string | null>(null);
   const [pestañaActiva, setPestañaActiva] = useState<Pestaña>("resumen");
+  const usuarioActual = useUsuarioActual();
+  // Fase 3 CRM: la pestaña Actividad existe solo con la funcionalidad "bitacora".
+  const conBitacora = habilitada("bitacora");
+  const pestañas: { key: Pestaña; label: string }[] = [
+    { key: "resumen", label: "Resumen" },
+    { key: "facturas", label: "Facturas" },
+    { key: "pedidos", label: "Pedidos" },
+    { key: "autorizaciones", label: "Autorizaciones" },
+    { key: "estado-cuenta", label: "Estado de cuenta" },
+    ...(conBitacora ? [{ key: "actividad" as const, label: "Actividad" }] : []),
+  ];
 
   const buscar = useCallback(
     async (query: string): Promise<ClienteBusqueda[]> => {
@@ -468,15 +481,7 @@ export function Cliente360Page() {
           </div>
 
           <div className="c360-tabs-row" style={{ display: "flex", gap: 4, marginTop: 24, borderBottom: "1px solid var(--color-line)" }}>
-            {(
-              [
-                { key: "resumen", label: "Resumen" },
-                { key: "facturas", label: "Facturas" },
-                { key: "pedidos", label: "Pedidos" },
-                { key: "autorizaciones", label: "Autorizaciones" },
-                { key: "estado-cuenta", label: "Estado de cuenta" },
-              ] as const
-            ).map((pestaña) => (
+            {pestañas.map((pestaña) => (
               <button
                 key={pestaña.key}
                 onClick={() => setPestañaActiva(pestaña.key)}
@@ -634,6 +639,14 @@ export function Cliente360Page() {
                   <Table columns={columnasAutorizaciones} rows={autorizaciones} rowKey={(a) => a.doc_entry} />
                 )}
               </>
+            )}
+
+            {pestañaActiva === "actividad" && conBitacora && (
+              <BitacoraActividad
+                cardCode={ficha.card_code}
+                enPiloto={enPiloto("bitacora")}
+                usuarioActual={usuarioActual}
+              />
             )}
 
             {pestañaActiva === "estado-cuenta" && (

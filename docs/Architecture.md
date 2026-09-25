@@ -440,6 +440,34 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **Frontend:** bloque "Comportamiento de pago" en el Resumen de Cliente 360 (días para cobrar, atraso con chip de tendencia, selector 6/12 meses, "sin historial suficiente", badge "Piloto") y una línea de contexto en el detalle de la Bandeja que nunca bloquea la decisión. Sin la funcionalidad habilitada no se monta ni se hace el fetch.
     - **Abierto:** cheques rechazados no detectables de forma simple (257 en 12 meses, sin vínculo directo con el recibo). Las cuentas de resguardo están fijadas por patrón (`1-1-3-00_-900`, `1-1-4-010-%`): confirmar con Alejandro por el rediseño contable. Además, facturas pagadas con cheques que todavía no vencieron quedan fuera de la ventana actual hasta el vencimiento, lo que es consistente con la decisión.
     - Tests: 275 backend, 120 frontend.
+50. **`IMPLEMENTADO 25/09/2026 (piloto)` — CRM liviano, Fase 3: Bitácora de gestión.** Pestaña "Actividad" en Cliente 360, detrás de `FEATURE_BITACORA`. Se hizo antes que la Fase 2 (alertas) por pedido de Líber: "la bitácora es más útil".
+    - **Endpoints** (todos con 404 si la funcionalidad no está habilitada para el usuario):
+      - `GET /api/clientes/{card_code}/bitacora` → `{cliente, motivos, canales, equipo, tareas, eventos}`;
+      - `POST .../bitacora/eventos` (gestión manual) y `POST .../bitacora/tareas` (recordatorio) → 201;
+      - `PATCH /api/tareas/{id}` con `{"estado": "completada"}`.
+    - **Clave:** `numero_sn` consolidado (`cliente_360.consolidacion_de`), o `card_code` si no hay SN. Una cuenta hija y su pagador central comparten la Bitácora, y la UI lo avisa. Un `card_code` que no existe en SAP da 404 antes de escribir.
+    - **Tablas:** `crm_eventos` (inmutable, sin UPDATE ni DELETE) y `crm_tareas`. Las decisiones de la Bandeja aparecen como eventos automáticos **armados en la lectura** desde `bandeja_decisiones`, sin duplicarse en `crm_eventos`. Aparecen con cualquier `sap_status`, porque la decisión la tomó una persona igual.
+    - **Motivos:** los 22 del vocabulario real de la planilla semanal (decisión de Líber), en una constante única en `shared/bitacora.py` que viaja en el GET; la UI nunca la duplica. Canales: Llamada, Email, WhatsApp, Visita, Carta, Otro. `equipo` = usuarios activos de `usuarios_sap` (`usuarios_sap.listar_activos()`), para elegir el responsable.
+    - **Completar una tarea:** el UPDATE solo toca la tarea si sigue `pendiente` y mira `rowcount`. Si dos personas completan a la vez, la segunda recibe 400 y no se genera un evento duplicado. Al completarla se genera el evento automático "Recordatorio completado" (con `card_code: null`, porque la tarea es del cliente, no de una cuenta).
+    - **Decisiones del orquestador (aceptadas en la revisión):**
+      - completar (UPDATE de la tarea + INSERT del evento) no es atómico: si falla el INSERT, la tarea queda completada sin evento. Costo bajo, porque el evento es informativo;
+      - el tope de 20 completadas se aplica en Python;
+      - cualquier usuario del equipo puede completar cualquier tarea (el trabajo es compartido);
+      - `fecha_objetivo` pasada se bloquea solo en el frontend. En el backend se acepta, porque solo se ve como vencida, y validarla haría que los tests dependan del día en que se corren;
+      - largos (`nota` 1000, `descripcion` 500) medidos en unidades UTF-16, igual que `NVARCHAR`: con emojis, un texto que Python contaba como válido daba 500 en vez de 400.
+    - **Frontend:** `BitacoraActividad.tsx`:
+      - tareas vencidas en rojo ("Venció hace N días") y completadas colapsadas;
+      - historial agrupado por día, con los automáticos más discretos;
+      - panel "Registrar" (Gestión / Recordatorio) fijo en escritorio y antes del historial en celular.
+      Tildar una tarea la completa al instante, sin confirmación; queda para evaluar con las supervisoras en el piloto.
+    - **Validador:** aprobado con observaciones, todas corregidas:
+      - la pestaña podía quedar en "Cargando…" para siempre si se cambiaba de cuenta mientras terminaba una acción (el `recargar` del cliente anterior pisaba la carga del actual), con test de regresión;
+      - `card_code` nullable en el tipo;
+      - recarga cuando completar da 400;
+      - largo UTF-16;
+      - test de render de `Cliente360Page` con la flag apagada y encendida.
+    - **Fuera de esta etapa:** no se conecta al envío automático de estados de cuenta ni al sistema de recordatorios existente (bloqueante del doc de gap). Las cuentas hijas con SN propio distinto del consolidado no suman sus decisiones de la Bandeja.
+    - Tests: 355 backend, 171 frontend.
 
 ## 10. Gotchas ya pagados
 
