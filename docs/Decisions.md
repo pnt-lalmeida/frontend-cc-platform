@@ -290,3 +290,6 @@ Las dos van con su flag, en piloto.
 **Deploy:**
 - Frontend: automático vía GitHub Actions al pushear a `main` (Azure Static Web Apps), sin paso manual.
 - Backend: los tests corren solos en `main`, pero el deploy real queda como paso manual en el pipeline de GitLab (decisión ya documentada: único punto de escritura real a SAP). Pendiente de que Líber haga clic.
+
+### 28/09/2026 — Bitácora y Situación de la cuenta liberadas a todo el equipo
+**Decisión de Líber:** primer paso del rollout gradual. `FEATURE_BITACORA` y `FEATURE_SITUACION_CUENTA` pasaron de `piloto` a `todos` en la Function App de producción, después de que Líber la probó como único `CC.Supervisor`. Se liberaron juntas porque los cambios de situación quedan registrados como evento en la Bitácora. El resto de las funcionalidades del CRM liviano sigue en `piloto` (solo Líber las ve) o `off` (sin construir).
