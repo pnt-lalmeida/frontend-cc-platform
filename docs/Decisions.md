@@ -312,3 +312,12 @@ Las dos van con su flag, en piloto.
 **Feedback de Líber**, con capturas: "Cuentas relacionadas" seguía mostrando -624 en dólares, y "Saldo cta. cte." daba $0 al mirar la cuenta en pesos.
 **Causa:** el arreglo del punto 55 solo tocó el tile de arriba, no "Cuentas relacionadas" (mismo bug); y comparaba contra la clave equivocada ("$" en vez de "UYU", el valor real que manda el backend). Corregido y verificado con un test que falla sin el arreglo. Detalle en `Architecture.md` punto 56.
 **Además:** reordenadas las cajas del Resumen a pedido de Líber: Cuentas relacionadas, Cheques pendientes, Antigüedad de saldos, Comportamiento de pago.
+
+### 28/09/2026 — Agentes formalizados en .claude/agents/
+**Decisión de Líber:** formalizar los roles de agentes usados desde la Fase 1 del CRM liviano (`Decisions.md` 25/09/2026: orquestador, investigador, backend, frontend, validador — nunca fueron 6, el "database/Azure" que Líber había propuesto en un principio quedó fusionado con el orquestador, que hace las acciones sensibles con su OK explícito cada vez, no un agente aparte). Preocupación de Líber: que quedaran desactualizados con el tiempo.
+
+**Resuelto separando dos capas:**
+- **Fija (el archivo `.claude/agents/*.md`):** reglas duras y patrones estables — solo lectura para Investigador/Validador, TDD y qué nunca tocar para Backend/Frontend, cómo reportar. Cada agente arranca leyendo `CLAUDE.md`/`Architecture.md`, así absorbe las convenciones vigentes sin que vivan duplicadas en su propio archivo.
+- **Dinámica (el brief/contrato de cada fase):** la tarea puntual, sigue escribiéndose fresca cada vez, exactamente como hasta ahora — nada de esto cambia el proceso ya usado.
+
+**Archivos:** `investigador.md` y `validador.md` idénticos en los dos repos (mismo criterio que `Architecture.md`/`Decisions.md`); `backend.md` solo en `cc-platform-api`; `frontend.md` solo en `frontend-cc-platform`.
