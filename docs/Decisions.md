@@ -321,3 +321,14 @@ Las dos van con su flag, en piloto.
 - **Dinámica (el brief/contrato de cada fase):** la tarea puntual, sigue escribiéndose fresca cada vez, exactamente como hasta ahora — nada de esto cambia el proceso ya usado.
 
 **Archivos:** `investigador.md` y `validador.md` idénticos en los dos repos (mismo criterio que `Architecture.md`/`Decisions.md`); `backend.md` solo en `cc-platform-api`; `frontend.md` solo en `frontend-cc-platform`.
+
+### 28/09/2026 — Sexto agente: Optimizador (performance/costo), a demanda
+**Propuesta de Líber:** sumar un agente Optimizador al flujo, después del Validador: Contrato → Investigar → Desarrollo (BE/FE) → Validar (bugs) → Optimizar (perf) → firma del orquestador.
+
+**Acordado con Líber:**
+- **Alcance separado del Validador:** el Optimizador busca performance y costo (round-trips evitables, consultas N+1, índices que van a hacer falta, payloads pesados, costo de Azure/bundle) — nunca corrección. Si encuentra un bug de lógica, lo reporta y no lo toca.
+- **Cada cambio necesita evidencia medida**, nunca especulación — mismo criterio ya aplicado el mismo día con la latencia de la Bitácora (`Architecture.md` punto 55).
+- **Se invoca a demanda, no en cada fase** — este es un sistema interno de pocos usuarios con tablas todavía chicas; forzarlo siempre sería gastar de más en cambios chicos.
+- **Es el único agente que combina lectura solo-lectura contra SAP/HANA/Azure reales con permiso de escribir código** — ni el Investigador (no escribe código) ni Backend/Frontend (no pueden tocar SAP/HANA reales) tienen esa combinación. Medir y arreglar son el mismo ciclo en optimización (se arregla y se vuelve a medir para probar la mejora), a diferencia de un bug, donde encontrar y arreglar sí se separan bien entre Validador y Backend/Frontend.
+
+**Archivos:** `optimizador.md`, uno por repo (no idéntico entre los dos, a diferencia de investigador/validador — lo que se optimiza en cada lado es distinto: SQL y round-trips a SAP en el backend, bundle y fetches redundantes en el frontend).
