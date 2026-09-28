@@ -2,8 +2,8 @@
 
 **Proyecto:** Automatización Empresarial con IA Agéntica — Pontyn
 **Sector:** Cuentas Corrientes y Cobranzas
-**Última actualización:** 16/09/2026 (motor de base confirmado + estrategia de validación técnica en paralelo — ver `Discovery.md` §15)
-**Estado:** Roadmap vigente. Construcción del MVP en arranque — ver checklist de datos y accesos (`Pontyn_CC_Checklist_Datos_y_Accesos.md`).
+**Última actualización:** 16/09/2026 (motor de base confirmado + estrategia de validación técnica en paralelo — ver `Discovery.md` §15). **`ACTUALIZADO 28/09/2026`:** este roadmap quedó desactualizado frente a lo que realmente pasó — se mantiene como snapshot histórico, con notas puntuales agregadas donde corresponde (Secciones 2 y 7). El estado real y vigente vive en `CLAUDE.md` (siempre al día) y `Architecture.md` Sección 9 (log de hallazgos e implementaciones, ambos con fecha).
+**Estado:** Cliente 360 y Bandeja de Autorización, construidos y validados con escrituras reales a SAP, en `main`. CRM liviano (Iniciativas 1-6, Etapa 1) implementado y en piloto — ver `Architecture.md` puntos 47-56. Hub Omnicanal: próximo hito grande, sin arrancar.
 
 > Para el detalle de hallazgos y evidencia que sustenta este plan, ver `Discovery.md`. Este archivo no repite esa evidencia — solo el alcance, la secuencia y las decisiones de ejecución.
 
@@ -133,6 +133,8 @@ Esta priorización es todavía preliminar. El score definitivo requiere completa
 ---
 
 ## 7. Plan de acción — etapas del roadmap
+
+**`ACTUALIZADO 28/09/2026`:** el orden real terminó siendo distinto de estos 8 pasos — se saltó directo a Cliente 360 (Paso 4) y la Bandeja (Paso 5), ya construidos y validados, y desde ahí se pasó directo al CRM liviano (una versión acotada del Paso 8, Etapa 1 solamente — ver `Gap_ClaudeCode_CRM_Liviano.md` y `Architecture.md` puntos 47-56), sin pasar por los Pasos 1, 2, 3, 6 ni 7 tal como están descriptos acá. La secuencia real y por qué se decidió así está en `Decisions.md`, fecha por fecha. Se deja el roadmap original como snapshot — los Pasos 6 y 7 (resguardos, reconciliación de cadenas) siguen siendo trabajo futuro genuino, no descartado, solo no priorizado todavía.
 
 ### Paso 1 — Cerrar baseline de los candidatos principales
 

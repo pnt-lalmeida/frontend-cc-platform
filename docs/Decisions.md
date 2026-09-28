@@ -359,3 +359,14 @@ Las dos van con su flag, en piloto.
 - **Gobierno:** solo el orquestador edita `.claude/agents/*.md` — ningún agente modifica su propio archivo ni el de otro. Ya era así en la práctica; ahora queda explícito.
 - **Del borrador de Líber se sumó además:** énfasis de seguridad tipo OWASP en `validador.md` (autorización en cada endpoint, no confiar en ids del cliente sin validar, no filtrar detalles internos en errores) — no estaba cubierto antes de forma explícita.
 - **Hallazgo de paso:** el `CLAUDE.md` del repo frontend estaba desactualizado (fechado 24/09, sin nada del CRM liviano) — se le sumó la nota de agentes y quedó señalado `TO VERIFY` para actualizar el "Estado actual" en el próximo hito grande.
+
+### 28/09/2026 — Primera consolidación de docs (Architecture.md, Plan.md, Discovery.md)
+**Pedido de Líber:** compactar `Architecture.md` y otros `.md` que crecieron mucho, con entradas legacy.
+
+**Hallazgo antes de tocar nada:** más de 50 lugares en el código (`.py`, `.sql`, tests) citan un número de punto puntual de `Architecture.md` (ej. `# Architecture.md punto 55`) como explicación de por qué el código está escrito así. Renumerar o fusionar puntos rompería esas citas en silencio. Por eso la consolidación **nunca renumera ni borra un punto existente** — solo agrega navegación y notas de "ver también".
+
+**Hecho:**
+- **`Architecture.md`:** índice por tema al principio de la Sección 9 (fundamentos SAP, incidentes reales, funcionalidades de Cliente 360, CRM liviano, etc.), y notas de "ver también punto 55" en los puntos 29/30 (cheques/estado de cuenta), que quedaron parcialmente superados por la corrección del mismo día.
+- **`Plan.md`:** el roadmap original (Sección 7, Pasos 1-8) y el banner de estado estaban desactualizados desde el 16/09 — se agregó una nota en el lugar señalando que el orden real fue distinto (se saltó directo a Cliente 360/Bandeja y de ahí al CRM liviano), sin borrar el plan original.
+- **`Discovery.md`:** 3 preguntas de la Sección 12 que ya estaban resueltas (mecanismo de bloqueo por crédito, canales por cliente, definición de promesa de pago para la Etapa 1) marcadas como tal, con el puntero a `Architecture.md`. El resto de las ~50 preguntas de esa sección no se auditó una por una — queda para una pasada futura si hace falta.
+- **Corrección de paso:** `Decisions.md` (append-only, no se toca) y `CLAUDE.md` (se actualiza en cada hito grande) no necesitaban esta consolidación. Se corrigió además la regla de sincronización entre repos en `CLAUDE.md`: en la práctica `Discovery.md` y `Plan.md` ya se mantenían idénticos entre los dos repos, igual que `Architecture.md`/`Decisions.md`, pero la regla escrita solo mencionaba estos dos últimos.

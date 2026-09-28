@@ -712,7 +712,7 @@ Inicialmente:
 - ¿A qué corresponde exactamente el "14%" mencionado junto con la posibilidad de reautorización? (contexto insuficiente en la reunión)
 - Dado el pico de diciembre (~300 fuera de horario vs. ~80 promedio), ¿conviene una solución de cobertura estacional (ej. bandeja web temporal) en lugar de dimensionar todo el año para el pico?
 - ¿Qué autoridad/criterio exacto aplica Jorge para autorizar excepciones en deuda sin justificación, y puede convertirse en una regla explícita?
-- ¿El campo/mecanismo que marca un pedido como "bloqueado por crédito" en SAP corresponde a `AuthorizationStatus` (Procedimientos de Aprobación estándar) o a otra lógica? Hipótesis técnica y evidencia de esquema en Sección 15 — a confirmar con Germán o probando contra el ambiente real.
+- ~~¿El campo/mecanismo que marca un pedido como "bloqueado por crédito" en SAP corresponde a `AuthorizationStatus`...?~~ **`RESUELTO`**: no — descartado, `AuthorizationStatus` da `dasWithout` en el 100% de la muestra real. El mecanismo real es el stored procedure `SP_TransactionNotification`, confirmado por Germán — ver `Architecture.md` Sección 4.3/4.6.
 
 ### Resguardos
 
@@ -745,10 +745,10 @@ Inicialmente:
 ### CRM / Hub Omnicanal
 
 - ¿Qué datos de gestión deben migrar de las planillas?
-- ¿Qué constituye una promesa de pago?
-- ¿Qué estados debería tener?
+- ~~¿Qué constituye una promesa de pago?~~ **`RESUELTO para la Etapa 1`**: exige importe concreto; una fecha coordinada sin importe se registra como gestión en la Bitácora, no como promesa — ver `Architecture.md` punto 47/`Decisions.md` 25/09/2026. La Etapa 2 (política/control) sigue sin definir.
+- ¿Qué estados debería tener? *(la Etapa 1 de promesas define un flujo básico — ver `Architecture.md`, Fase 4 del CRM liviano — pero todavía no está construida)*
 - ¿Qué comunicaciones pueden automatizarse?
-- ¿Qué canales son permitidos por cliente? Candidatos técnicos identificados: UDFs `U_WhatsappCC`/`U_EmailCC` en `BusinessPartners` — ver Sección 15.
+- ~~¿Qué canales son permitidos por cliente? Candidatos técnicos: UDFs `U_WhatsappCC`/`U_EmailCC`.~~ **`RESUELTO`**: confirmados y ya implementados (`normalize_business_partner`, campos `email_cc`/`whatsapp_cc`) — ver `Architecture.md` Sección 4.2.
 - ¿Cómo integrar conversaciones internas con vendedores sin mezclar canales externos?
 - ¿Qué es exactamente "POC" (la app que usa Nicolás), qué datos maneja hoy y debería absorberse dentro de la Plataforma Web o reemplazarse por ella?
 
