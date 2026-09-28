@@ -183,9 +183,10 @@ const COLUMNAS_ESTADO_CUENTA: TableColumn<EstadoCuentaFila>[] = [
 const COLUMNAS_ESTADO_CUENTA_SIN_MONEDA = COLUMNAS_ESTADO_CUENTA.filter((c) => c.key !== "moneda");
 
 // Nombre legible por grupo. Claves = EstadoCuentaFila.moneda tal cual viene
-// del backend ("$"/"USD"/"EUR"), no ficha.moneda ("UYU"/"USD"/"EUR").
+// del backend: "UYU"/"USD"/"EUR" (normalize_estado_cuenta_fila ya traduce
+// "$" -> "UYU"), mismo vocabulario que ficha.moneda.
 const NOMBRE_DE_MONEDA_ESTADO_CUENTA: Record<string, string> = {
-  $: "Pesos (UYU)",
+  UYU: "Pesos (UYU)",
   USD: "Dólares (USD)",
   EUR: "Euros (EUR)",
 };
@@ -594,42 +595,12 @@ export function Cliente360Page() {
                 </div>
 
                 <div>
-                  {habilitada("antiguedad_saldos") && (
-                    <BloqueAntiguedadSaldos
-                      filas={estadoCuenta}
-                      pagadorCentral={pagadorCentralEstadoCuenta}
-                      loading={cargandoEstadoCuenta}
-                      error={errorEstadoCuenta}
-                      enPiloto={enPiloto("antiguedad_saldos")}
-                    />
-                  )}
-                  {habilitada("indicadores_pago") && (
-                    <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
-                  )}
-                  <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
-                    Cheques pendientes
-                  </p>
-                  <div style={{ border: "1px solid var(--color-line)", borderRadius: 8, padding: "14px 16px" }}>
-                    {cheques && cheques.cantidad_cheques > 0 ? (
-                      <>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 500 }}>
-                          {formatMoneyEntero(montoCheques(ficha.cheques_pendientes), ficha.moneda)}
-                        </div>
-                        <div style={{ fontSize: 12.5, color: "var(--color-muted)", marginTop: 4 }}>
-                          {cheques.cantidad_cheques} cheque{cheques.cantidad_cheques === 1 ? "" : "s"}
-                          {cheques.promedio_plazo_dias != null
-                            ? ` · ${Math.round(cheques.promedio_plazo_dias)} días de plazo promedio`
-                            : ""}
-                        </div>
-                      </>
-                    ) : (
-                      <p style={{ color: "var(--color-muted)", margin: 0 }}>Sin cheques pendientes.</p>
-                    )}
-                  </div>
-
+                  {/* Orden pedido por Liber 28/09/2026: Cuentas
+                      relacionadas, Cheques pendientes, Antiguedad de
+                      saldos, Comportamiento de pago. */}
                   {ficha.cuentas_relacionadas.length > 0 && (
-                    <>
-                      <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "20px 0 10px", fontWeight: 500 }}>
+                    <div style={{ marginBottom: 20 }}>
+                      <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
                         Cuentas relacionadas {ficha.numero_sn ? `(N.º SN ${ficha.numero_sn})` : ""}
                       </p>
                       <div style={{ border: "1px solid var(--color-line)", borderRadius: 8, overflow: "hidden" }}>
@@ -649,7 +620,13 @@ export function Cliente360Page() {
                               {cuenta.card_code} · {cuenta.moneda ?? "—"}
                             </span>
                             <span style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
-                              {formatMoney(cuenta.current_account_balance, cuenta.moneda)}
+                              {/* No cuenta.current_account_balance (SAP, siempre en
+                                  pesos): mismo bug y mismo arreglo que "Saldo cta. cte." */}
+                              {errorEstadoCuenta
+                                ? "—"
+                                : cargandoEstadoCuenta && estadoCuenta.length === 0
+                                  ? "…"
+                                  : formatMoney(totalCuentaPropia(estadoCuenta, cuenta.moneda), cuenta.moneda)}
                             </span>
                           </div>
                         ))}
@@ -657,7 +634,42 @@ export function Cliente360Page() {
                       <p style={{ fontSize: 11.5, color: "#8A9490", marginTop: 8 }}>
                         Cada cuenta es una moneda separada — nunca se suman entre sí.
                       </p>
-                    </>
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 20 }}>
+                    <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
+                      Cheques pendientes
+                    </p>
+                    <div style={{ border: "1px solid var(--color-line)", borderRadius: 8, padding: "14px 16px" }}>
+                      {cheques && cheques.cantidad_cheques > 0 ? (
+                        <>
+                          <div style={{ fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 500 }}>
+                            {formatMoneyEntero(montoCheques(ficha.cheques_pendientes), ficha.moneda)}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "var(--color-muted)", marginTop: 4 }}>
+                            {cheques.cantidad_cheques} cheque{cheques.cantidad_cheques === 1 ? "" : "s"}
+                            {cheques.promedio_plazo_dias != null
+                              ? ` · ${Math.round(cheques.promedio_plazo_dias)} días de plazo promedio`
+                              : ""}
+                          </div>
+                        </>
+                      ) : (
+                        <p style={{ color: "var(--color-muted)", margin: 0 }}>Sin cheques pendientes.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {habilitada("antiguedad_saldos") && (
+                    <BloqueAntiguedadSaldos
+                      filas={estadoCuenta}
+                      pagadorCentral={pagadorCentralEstadoCuenta}
+                      loading={cargandoEstadoCuenta}
+                      error={errorEstadoCuenta}
+                      enPiloto={enPiloto("antiguedad_saldos")}
+                    />
+                  )}
+                  {habilitada("indicadores_pago") && (
+                    <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
                   )}
                 </div>
               </div>

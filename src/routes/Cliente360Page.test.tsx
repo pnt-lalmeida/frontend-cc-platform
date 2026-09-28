@@ -26,7 +26,7 @@ vi.mock("../features/FeaturesContext", () => ({
 const ficha: FichaCliente = {
   card_code: "C1-17453",
   card_name: "Cliente de prueba",
-  moneda: "$",
+  moneda: "UYU",
   credit_limit: 100000,
   sin_limite: false,
   current_account_balance: 0,
@@ -51,35 +51,36 @@ const ficha: FichaCliente = {
 vi.mock("./cliente360/useClienteSearch", () => ({
   useClienteSearch: () => ({ query: "", setQuery: () => {}, resultados: [], loading: false, error: null }),
 }));
+const useFichaClienteMock = vi.fn((_cardCode: string | null) => ({
+  ficha,
+  facturas: [],
+  pedidos: [],
+  cheques: null,
+  loading: false,
+  error: null,
+  recargar: () => {},
+}));
 vi.mock("./cliente360/useFichaCliente", () => ({
-  useFichaCliente: () => ({
-    ficha,
-    facturas: [],
-    pedidos: [],
-    cheques: null,
-    loading: false,
-    error: null,
-    recargar: () => {},
-  }),
+  useFichaCliente: (cardCode: string | null) => useFichaClienteMock(cardCode),
+}));
+const FILA_ESTADO_CUENTA_DEFAULT = {
+  folio: "1",
+  tipo: "Factura",
+  moneda: "UYU",
+  vendedor: null,
+  fecha: "2020-01-01",
+  vencimiento: "2020-02-01",
+  saldo: 4200,
+  saldo_corrido: 4200,
+};
+const useEstadoCuentaMock = vi.fn((_cardCode: string | null) => ({
+  filas: [FILA_ESTADO_CUENTA_DEFAULT],
+  pagadorCentral: null,
+  loading: false,
+  error: null,
 }));
 vi.mock("./cliente360/useEstadoCuenta", () => ({
-  useEstadoCuenta: () => ({
-    filas: [
-      {
-        folio: "1",
-        tipo: "Factura",
-        moneda: "UYU",
-        vendedor: null,
-        fecha: "2020-01-01",
-        vencimiento: "2020-02-01",
-        saldo: 4200,
-        saldo_corrido: 4200,
-      },
-    ],
-    pagadorCentral: null,
-    loading: false,
-    error: null,
-  }),
+  useEstadoCuenta: (cardCode: string | null) => useEstadoCuentaMock(cardCode),
 }));
 vi.mock("./cliente360/useAutorizaciones", () => ({
   useAutorizaciones: () => ({ autorizaciones: [], loading: false, error: null }),
@@ -88,6 +89,16 @@ vi.mock("./cliente360/BloqueComportamientoPago", () => ({ BloqueComportamientoPa
 vi.mock("./cliente360/BitacoraActividad", () => ({
   BitacoraActividad: ({ cardCode }: { cardCode: string }) => <div data-testid="bitacora">{cardCode}</div>,
 }));
+
+// Corre antes del beforeEach de cada describe: deja useFichaCliente/
+// useEstadoCuenta en su default salvo que un describe los pise despues
+// (evita que un mockReturnValue de un test se filtre a los siguientes).
+beforeEach(() => {
+  useFichaClienteMock.mockReturnValue({
+    ficha, facturas: [], pedidos: [], cheques: null, loading: false, error: null, recargar: () => {},
+  });
+  useEstadoCuentaMock.mockReturnValue({ filas: [FILA_ESTADO_CUENTA_DEFAULT], pagadorCentral: null, loading: false, error: null });
+});
 
 describe("Cliente360Page — pestaña Actividad", () => {
   beforeEach(() => {
@@ -176,5 +187,51 @@ describe("Cliente360Page — Suspendido", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /suspendido: no/i }));
     expect(screen.getByText(/¿Seguro que querés suspender a este cliente\?/)).toBeTruthy();
+  });
+});
+
+// 28/09/2026: "Saldo cta. cte." y "Cuentas relacionadas" NO usan el campo
+// crudo de SAP (current_account_balance, siempre en pesos) - se calculan
+// sumando el Estado de cuenta filtrado a la moneda de cada cuenta. Dos bugs
+// reales encontrados con captura de Liber:
+// 1) "Cuentas relacionadas" seguia mostrando el campo crudo de SAP para las
+//    cuentas relacionadas (solo se habia arreglado el tile de arriba).
+// 2) el primer arreglo comparaba contra la clave equivocada ("$" en vez de
+//    "UYU", que es lo que realmente manda el backend) - "Saldo cta. cte."
+//    daba $0 al mirar la cuenta en pesos.
+describe("Cliente360Page — Saldo cta. cte. y Cuentas relacionadas (multi-moneda)", () => {
+  const fichaConCuentaUsd: FichaCliente = {
+    ...ficha,
+    numero_sn: "6958",
+    cuentas_relacionadas: [{ ...ficha, card_code: "C2-06958", moneda: "USD", cuentas_relacionadas: [] }],
+  };
+  const filasMultiMoneda = [
+    { ...FILA_ESTADO_CUENTA_DEFAULT, moneda: "UYU", saldo: 25535.85, saldo_corrido: 25535.85 },
+    { ...FILA_ESTADO_CUENTA_DEFAULT, folio: "2", moneda: "USD", saldo: -16.96, saldo_corrido: -16.96 },
+  ];
+
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    apiFetch.mockReset();
+    useEstadoCuentaMock.mockReturnValue({ filas: filasMultiMoneda, pagadorCentral: null, loading: false, error: null });
+    useFichaClienteMock.mockReturnValue({
+      ficha: fichaConCuentaUsd, facturas: [], pedidos: [], cheques: null, loading: false, error: null, recargar: () => {},
+    });
+  });
+
+  it("Saldo cta. cte. suma el Estado de cuenta en la moneda de la cuenta seleccionada (UYU)", () => {
+    render(<Cliente360Page />);
+
+    // Antes del bug 2: "$0" (comparaba contra la clave equivocada, "$" en
+    // vez de "UYU").
+    expect(screen.getByTitle(/25\.535,85/)).toBeTruthy();
+  });
+
+  it("Cuentas relacionadas suma el Estado de cuenta en la moneda de cada cuenta, no el campo crudo de SAP", () => {
+    render(<Cliente360Page />);
+
+    // Antes del bug 1: mostraba ficha.current_account_balance (0, en este
+    // fixture) en vez de la suma real del Estado de cuenta.
+    expect(screen.getByText("US$ -16,96")).toBeTruthy();
   });
 });

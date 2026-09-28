@@ -307,3 +307,8 @@ Las dos van con su flag, en piloto.
 **Consulta de Líber** sobre por qué la Bitácora tarda ~9 s en local y si hacía falta un índice.
 **Hallazgo:** no es índices ni cold start — la demora local es por `az_cli_token` (subproceso del CLI de Azure en cada conexión, no ocurre en producción). Al revisar el código encontré que la consulta de decisiones de la Bandeja por cuenta relacionada, que pensé que iteraba una vez por cuenta, ya estaba corregida (una sola consulta con `IN`) desde la Fase de paginación de la Bitácora — mi primera nota sobre esto estaba basada en código anterior a esa fase.
 **Decisión de Líber:** agregar igual el índice faltante en `bandeja_decisiones (card_code, timestamp_utc DESC)`, aplicado con su OK. Detalle en `Architecture.md` punto 55.
+
+### 28/09/2026 — Dos bugs reales más en el arreglo de saldo por moneda; reordenado del Resumen
+**Feedback de Líber**, con capturas: "Cuentas relacionadas" seguía mostrando -624 en dólares, y "Saldo cta. cte." daba $0 al mirar la cuenta en pesos.
+**Causa:** el arreglo del punto 55 solo tocó el tile de arriba, no "Cuentas relacionadas" (mismo bug); y comparaba contra la clave equivocada ("$" en vez de "UYU", el valor real que manda el backend). Corregido y verificado con un test que falla sin el arreglo. Detalle en `Architecture.md` punto 56.
+**Además:** reordenadas las cajas del Resumen a pedido de Líber: Cuentas relacionadas, Cheques pendientes, Antigüedad de saldos, Comportamiento de pago.
