@@ -28,3 +28,12 @@ Stefano (Dirección) · Rosina y Claudia (supervisión) · Lorena, Sabrina, Mons
 ## Snapshot histórico
 
 El descubrimiento vivía antes en `Pontyn_Descubrimiento_Cuentas_Corrientes_Resumen_Ejecutivo_v2.md` (resumen ejecutivo tipo reporte). Ese archivo queda como snapshot al 08/09/2026; el contenido vigente y editable de acá en más es `Discovery.md`.
+
+## Notas operativas
+
+- **Agentes formalizados** (28/09/2026) en `.claude/agents/`: `investigador` y `validador` (idénticos al repo backend `cc-platform-api`), `frontend` y `optimizador` (propios de este repo). Cada archivo trae solo las reglas duras y los patrones estables — la tarea puntual sigue viajando en un brief/contrato que se escribe fresco cada vez. `optimizador` es el único que combina lectura solo-lectura contra sistemas reales con permiso de escribir código, y se invoca a demanda, no en cada fase. Flujo completo y detalle de modelos (Opus/Sonnet) en el `CLAUDE.md` del repo backend y en `Decisions.md` 28/09/2026.
+- **Solo el orquestador edita `.claude/agents/*.md`.**
+- **Propuestas de agentes** (`docs/proposals/`, ver `docs/proposals/README.md`): un agente puede dejar como mucho un archivo corto ahí cuando encuentra algo reusable y ajeno a su tarea puntual. El orquestador las revisa y las borra al consolidarlas; el histórico de qué se decidió queda en `Decisions.md`.
+- **Ritual de revisión:** antes de arrancar un módulo grande nuevo, releer los 6 archivos de `.claude/agents/` (los dos repos) y revisar `docs/proposals/` pendiente.
+
+**`TO VERIFY` con Líber:** el "Estado actual" de arriba está fechado 24/09/2026 y no refleja el CRM liviano (Bitácora, Centro de alertas, Situación de la cuenta, Antigüedad de saldos, etc.), ya promovido a `main` el 28/09 — actualizar en el próximo hito grande, junto con el `CLAUDE.md` del backend.

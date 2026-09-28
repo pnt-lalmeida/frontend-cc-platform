@@ -346,3 +346,16 @@ Las dos van con su flag, en piloto.
 - **Rendimiento de renderizado:** deseable pero no es el foco del Frontend — si encuentra algo pesado, lo señala para un pase del Optimizador en vez de perseguirlo él mismo.
 
 `validador.md` ahora controla este estándar explícitamente, no solo se pide en `frontend.md` — evita que dependa de que cada brief lo repita.
+
+### 28/09/2026 — Mantenimiento de agentes/docs: propuestas, ritual de revisión, sin manifiesto nuevo
+**Pregunta de Líber:** si los agentes/docs se auto-mejoran solos, o hace falta revisarlos periódicamente. Compartió un borrador de `docs/agents_manifest.md` con un protocolo de propuestas.
+
+**Respuesta:** no se auto-mejoran — se corrigen cuando un trabajo real los toca (funcionó bien toda la sesión), pero eso depende de que haya trabajo activo tocando esa parte; una zona sin tocar por meses puede quedar desactualizada sin que nadie se entere.
+
+**Decidido con Líber:**
+- **No se crea `docs/agents_manifest.md`.** Sería duplicar `.claude/agents/*.md` (lo que Claude Code realmente lee) — dos fuentes de verdad es el mismo riesgo de desactualización que se venía evitando. `.claude/agents/*.md` + el resumen en `CLAUDE.md` ya cumplen esa función.
+- **Sí se adopta, en versión acotada, la idea de propuestas del borrador:** `docs/proposals/` en cada repo (ver `docs/proposals/README.md`). Un agente puede dejar como mucho un archivo corto cuando encuentra algo reusable y ajeno a su tarea puntual — nunca como reemplazo de su reporte normal (que sigue prohibido tener como `.md`, salvo esta excepción puntual). El orquestador las revisa al cerrar cada fase grande y las borra al consolidarlas.
+- **Ritual de revisión:** antes de arrancar un módulo grande nuevo, releer los 6 archivos de `.claude/agents/` (evento, no calendario — sobrevive a una compactación de contexto porque queda escrito en `CLAUDE.md`, no depende de que alguien se acuerde).
+- **Gobierno:** solo el orquestador edita `.claude/agents/*.md` — ningún agente modifica su propio archivo ni el de otro. Ya era así en la práctica; ahora queda explícito.
+- **Del borrador de Líber se sumó además:** énfasis de seguridad tipo OWASP en `validador.md` (autorización en cada endpoint, no confiar en ids del cliente sin validar, no filtrar detalles internos en errores) — no estaba cubierto antes de forma explícita.
+- **Hallazgo de paso:** el `CLAUDE.md` del repo frontend estaba desactualizado (fechado 24/09, sin nada del CRM liviano) — se le sumó la nota de agentes y quedó señalado `TO VERIFY` para actualizar el "Estado actual" en el próximo hito grande.

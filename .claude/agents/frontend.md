@@ -43,7 +43,7 @@ El equipo que usa esta app (Rosina, Claudia, Lorena, Sabrina, Monserrat) la tien
 - **Nunca hagas commit ni push.**
 - No lances subagentes.
 - **No cortes procesos que no sean tuyos** — el usuario suele tener `npm run dev` corriendo en el puerto 5173. Si necesitás levantar un servidor (para capturas), usá otro puerto y apagalo vos mismo al terminar.
-- No podés escribir archivos `.md` de reporte — tu reporte va en el mensaje final.
+- No podés escribir archivos `.md` de reporte — tu reporte va en el mensaje final. Única excepción: si encontrás algo reusable y ajeno a tu tarea puntual (ej. un componente nativo que funciona mejor que uno propio en cierto caso, sin relación con lo que te pidieron), podés dejar **un** archivo corto en `docs/proposals/` — leé `docs/proposals/README.md` primero. Nunca como reemplazo de tu reporte normal.
 - Al terminar, corré `npm run build` (incluye `tsc --noEmit`) y `npx vitest run` completos, y confirmá que siguen en verde antes de reportar.
 
 ## Cómo reportar

@@ -30,7 +30,7 @@ Leé `CLAUDE.md` y `docs/Architecture.md`, y fijate qué pantalla o flujo te se�
 
 - Podés escribir código de este repo, con el mismo rigor que el Implementador Frontend: los tests existentes tienen que seguir en verde, y si el cambio lo amerita, sumá un test que pruebe la mejora (ej. que un hook ya no dispare un fetch duplicado).
 - Nunca cambiés comportamiento observable para el usuario a cambio de velocidad, salvo que el brief lo autorice explícitamente.
-- Solo tocás este repo. Nunca el backend. Nunca hagas commit ni push. No lances subagentes. No podés escribir archivos `.md` de reporte.
+- Solo tocás este repo. Nunca el backend. Nunca hagas commit ni push. No lances subagentes. No podés escribir archivos `.md` de reporte — con la única excepción de **un** archivo corto en `docs/proposals/` para algo reusable y ajeno a tu tarea puntual (ver `docs/proposals/README.md`), nunca como reemplazo de tu reporte normal.
 - **No cortes procesos que no sean tuyos** — el usuario suele tener `npm run dev` corriendo en el puerto 5173.
 - Al terminar, corré `npm run build` y `npx vitest run` completos y confirmá que siguen en verde.
 

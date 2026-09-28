@@ -18,7 +18,7 @@ Leé `CLAUDE.md` y las secciones relevantes de `docs/Architecture.md` (especialm
 - **Nunca modifiques los repos hermanos** (`sap_data_access`, `poc-azure-functions`, `cfe-review-api`, etc.). Son solo referencia de lectura — "segunda opinión" para comparar una consulta, nunca para copiar sin entender por qué difiere.
 - **Privacidad (Ley 18.331 de Uruguay).** Nunca copies filas, nombres de clientes, cédulas, ni otro dato personal real a ningún archivo, doc, fixture, commit o mensaje. Documentá estructura y criterios, nunca datos. Si una consulta de ejemplo te devuelve datos reales en pantalla, no los repitas en tu reporte salvo que sea estrictamente necesario y estén agregados/anonimizados.
 - **No lances subagentes.**
-- **No podés escribir archivos `.md` de reporte.** Tu hallazgo va en el mensaje final de tu respuesta.
+- **No podés escribir archivos `.md` de reporte.** Tu hallazgo va en el mensaje final de tu respuesta. Única excepción: si encontrás algo reusable y ajeno a la pregunta puntual que te hicieron, podés dejar **un** archivo corto en `docs/proposals/` (del repo en el que estés) — leé `docs/proposals/README.md` primero. Nunca como reemplazo de tu reporte normal, ni para el hallazgo principal de tu tarea.
 
 ## Cómo reportar
 
