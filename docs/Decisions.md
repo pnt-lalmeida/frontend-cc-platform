@@ -276,3 +276,17 @@ Las dos van con su flag, en piloto.
 ### 28/09/2026 — Suspendido: "Suspendido: No/Sí" y cambio de estado en piloto
 **Decisión de Líber:** mostrar "Suspendido: No" o "Suspendido: Sí" en lugar de "Activo" / "Suspendido", porque "Activo" es otra cosa. Además, por ahora el cambio de estado queda deshabilitado detrás de una variable, igual que las funcionalidades nuevas, y en piloto.
 **Implementado** como la funcionalidad `cambiar_suspendido`, con default `piloto`: solo las supervisoras pueden cambiarlo y el resto del equipo ve la etiqueta. Detalle en `Architecture.md` punto 54.
+
+### 28/09/2026 — CRM liviano: development_crm promovida a development y main; rollout controlado por Líber
+**Decisión de Líber:** promover todo el CRM liviano construido hasta ahora (Fases 0-3, Bitácora v2, Situación de la cuenta, Antigüedad de saldos, Suspendido No/Sí) de `development_crm` a `development` y a `main`, en los dos repos. Merges limpios, sin conflictos; 559 tests backend y 355 frontend en verde en `main` antes de cada push.
+
+**Rollout elegido por Líber, para verlo él primero y liberar gradualmente al equipo:**
+1. Las 8 `FEATURE_*` se crearon explícitas en la Function App (antes no existían como App Setting; el código ya caía en `piloto` por defecto, pero ahora queda a la vista en el portal). `promesas`, `mi_dia` y `riesgo_bloqueo` en `off`, porque no están construidas.
+2. En Entra ID, Claudia Flores y Rosina Lopez pasaron a tener solo `CC.Usuario` (antes tenían `CC.Supervisor` también). Liber queda como único `CC.Supervisor`. Así nadie más que él ve lo nuevo hasta que decida liberarlo.
+3. Plan de liberación gradual, empezando por lo más útil: Bitácora primero, junto con lo relacionado (Situación de la cuenta, que se registra en la Bitácora). Después el resto, uno por uno.
+
+**Antes del deploy:** se borraron las 2 alertas `[PRUEBA]` cargadas en `crm_alertas` (con autorización de Líber del 25-28/09), para que el primer arranque de la campana en producción parta en cero.
+
+**Deploy:**
+- Frontend: automático vía GitHub Actions al pushear a `main` (Azure Static Web Apps), sin paso manual.
+- Backend: los tests corren solos en `main`, pero el deploy real queda como paso manual en el pipeline de GitLab (decisión ya documentada: único punto de escritura real a SAP). Pendiente de que Líber haga clic.
