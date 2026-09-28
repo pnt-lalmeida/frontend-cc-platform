@@ -22,6 +22,7 @@ import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago"
 import { ControlSituacionCuenta } from "./cliente360/ControlSituacionCuenta";
 import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
+import { agruparPorMoneda, totalCuentaPropia } from "./cliente360/estadoCuenta";
 import { useVerAdjunto } from "./cliente360/useVerAdjunto";
 import { facturaVencida } from "./cliente360/facturas";
 import { traducirEstadoPedido } from "./cliente360/pedidos";
@@ -177,6 +178,18 @@ const COLUMNAS_ESTADO_CUENTA: TableColumn<EstadoCuentaFila>[] = [
   },
 ];
 
+// Mismas columnas, sin "Moneda": una vez agrupado por moneda (28/09/2026) esa
+// columna queda redundante - el titulo del grupo ya dice cual es.
+const COLUMNAS_ESTADO_CUENTA_SIN_MONEDA = COLUMNAS_ESTADO_CUENTA.filter((c) => c.key !== "moneda");
+
+// Nombre legible por grupo. Claves = EstadoCuentaFila.moneda tal cual viene
+// del backend ("$"/"USD"/"EUR"), no ficha.moneda ("UYU"/"USD"/"EUR").
+const NOMBRE_DE_MONEDA_ESTADO_CUENTA: Record<string, string> = {
+  $: "Pesos (UYU)",
+  USD: "Dólares (USD)",
+  EUR: "Euros (EUR)",
+};
+
 export function Cliente360Page() {
   const getAccessToken = useAccessToken();
   const { habilitada, enPiloto } = useFeatures();
@@ -268,6 +281,17 @@ export function Cliente360Page() {
   const columnasFacturas = useMemo(() => construirColumnasFacturas(ficha?.moneda ?? null), [ficha?.moneda]);
   const columnasPedidos = useMemo(() => construirColumnasPedidos(ficha?.moneda ?? null), [ficha?.moneda]);
   const resumenFacturas = useMemo(() => calcularResumenFacturas(facturas), [facturas]);
+  // 28/09/2026 (bug real, feedback de Liber): el campo crudo de SAP
+  // (current_account_balance) viene siempre en pesos, incluso para cuentas en
+  // dolares/euros - mostrarlo con el simbolo de esa moneda era enganioso
+  // (un cliente en USD mostraba "US$ -624" cuando en realidad debia US$ -18,64).
+  // Se calcula en su lugar desde el propio Estado de cuenta, con el mismo
+  // criterio de moneda extranjera que ya usa esa tabla.
+  const gruposEstadoCuenta = useMemo(() => agruparPorMoneda(estadoCuenta), [estadoCuenta]);
+  const saldoCuentaPropia = useMemo(
+    () => totalCuentaPropia(estadoCuenta, ficha?.moneda ?? null),
+    [estadoCuenta, ficha?.moneda]
+  );
   const facturasVencidasOrdenadas = useMemo(
     () =>
       facturas
@@ -435,8 +459,20 @@ export function Cliente360Page() {
             >
               <Estadistica
                 etiqueta="Saldo cta. cte."
-                valor={formatMoneyEntero(ficha.current_account_balance, ficha.moneda)}
-                titulo={formatMoney(ficha.current_account_balance, ficha.moneda)}
+                // No es directamente ficha.current_account_balance (SAP): ver
+                // el comentario del calculo de saldoCuentaPropia, mas arriba.
+                valor={
+                  errorEstadoCuenta
+                    ? "—"
+                    : cargandoEstadoCuenta && estadoCuenta.length === 0
+                      ? "…"
+                      : formatMoneyEntero(saldoCuentaPropia, ficha.moneda)
+                }
+                titulo={
+                  errorEstadoCuenta
+                    ? "No se pudo calcular. Ver la pestaña Estado de cuenta."
+                    : `${formatMoney(saldoCuentaPropia, ficha.moneda)} — suma del Estado de cuenta en esta moneda`
+                }
               />
               <Estadistica
                 etiqueta="Saldo pedidos abiertos"
@@ -691,13 +727,36 @@ export function Cliente360Page() {
                 {!cargandoEstadoCuenta && !errorEstadoCuenta && estadoCuenta.length === 0 && (
                   <p style={{ color: "var(--color-muted)" }}>Sin movimientos registrados.</p>
                 )}
-                {!cargandoEstadoCuenta && !errorEstadoCuenta && estadoCuenta.length > 0 && (
-                  <Table
-                    columns={COLUMNAS_ESTADO_CUENTA}
-                    rows={estadoCuenta}
-                    rowKey={(f) => `${f.folio}-${f.fecha}-${f.saldo_corrido}`}
-                  />
-                )}
+                {/* Agrupado por moneda (28/09/2026): antes era una sola tabla
+                    con pesos y dolares mezclados, dificil de leer - la clave
+                    consolidada del Estado de cuenta junta las cuentas de un
+                    mismo cliente sin importar la moneda de cada una. */}
+                {!cargandoEstadoCuenta &&
+                  !errorEstadoCuenta &&
+                  gruposEstadoCuenta.map((grupo) => (
+                    <div key={grupo.moneda} style={{ marginBottom: 24 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, margin: 0 }}>
+                          {NOMBRE_DE_MONEDA_ESTADO_CUENTA[grupo.moneda] ?? grupo.moneda}
+                        </h3>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}>
+                          {formatMoney(grupo.total, grupo.moneda)}
+                        </span>
+                      </div>
+                      <Table
+                        columns={COLUMNAS_ESTADO_CUENTA_SIN_MONEDA}
+                        rows={grupo.filas}
+                        rowKey={(f) => `${f.folio}-${f.fecha}-${f.saldo_corrido}`}
+                      />
+                    </div>
+                  ))}
               </>
             )}
           </div>

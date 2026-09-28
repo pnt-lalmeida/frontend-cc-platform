@@ -293,3 +293,12 @@ Las dos van con su flag, en piloto.
 
 ### 28/09/2026 — Bitácora y Situación de la cuenta liberadas a todo el equipo
 **Decisión de Líber:** primer paso del rollout gradual. `FEATURE_BITACORA` y `FEATURE_SITUACION_CUENTA` pasaron de `piloto` a `todos` en la Function App de producción, después de que Líber la probó como único `CC.Supervisor`. Se liberaron juntas porque los cambios de situación quedan registrados como evento en la Bitácora. El resto de las funcionalidades del CRM liviano sigue en `piloto` (solo Líber las ve) o `off` (sin construir).
+
+### 28/09/2026 — Bug real de saldo en Estado de cuenta; consolidación de cheques por N.º SN
+**Feedback de Líber**, con captura de pantalla real (Cliente 360, cuenta en dólares): el saldo de arriba no coincidía con la suma del Estado de cuenta de abajo.
+
+**Decisión de Líber:** corregir `estado_cuenta_cliente.sql` (sacar un ajuste de retención que inflaba el saldo — única excepción autorizada al "nunca reescribir a mano" de esa consulta) y actualizar `cheques_pendientes_cliente.sql` (consolidar por N.º SN, excluir cancelados/rechazados/`BankCode 99`), comparando las dos contra las versiones más nuevas de `sap_data_access` como segunda opinión.
+
+**Verificación:** las dos correcciones se probaron contra SAP y HANA producción, solo lectura, con un cliente real. El saldo de Estado de cuenta ahora coincide centavo a centavo con la GUI nativa de SAP, en pesos y en dólares. Detalle completo en `Architecture.md` punto 55.
+
+**Pendiente:** confirmar con Germán qué representa `BankCode = '99'` en los cheques. Encontrado en la misma investigación, sin resolver todavía: la Bitácora consulta las decisiones de la Bandeja una vez por cuenta relacionada (en vez de una sola consulta), y a `bandeja_decisiones` le falta un índice por `card_code` — ninguno de los dos afecta hoy por el volumen chico, pero conviene arreglarlos antes de que crezca.
