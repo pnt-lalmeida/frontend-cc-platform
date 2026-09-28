@@ -335,3 +335,14 @@ Las dos van con su flag, en piloto.
 
 ### 28/09/2026 — Modelo por agente: Opus para Investigador/Validador/Optimizador, Sonnet para Backend/Frontend
 **Decisión de Líber**, sobre mi recomendación (al revés de lo que había propuesto él en un principio): mantener Opus en los agentes que son "puerta de calidad" (Investigador, Validador, Optimizador) — se usan menos seguido y un error ahí es caro (ej. el bug de retención en el saldo necesitó cruzar varias fuentes para encontrar la causa real). Bajar a Sonnet los que se usan más seguido y trabajan sobre un contrato ya detallado (Backend, Frontend). Es solo el default de cada archivo; el orquestador puede pisarlo por dispatch si una tarea puntual lo amerita.
+
+### 28/09/2026 — Estándar de UX/usabilidad, fijado en frontend.md y controlado por validador.md
+**Consulta de Líber:** de quién es la responsabilidad de que el frontend tenga una UX de primer nivel (lindo, usable, rápido, mobile friendly) — ¿del orquestador o del Frontend? Compartió un prompt de referencia (Mobile-First & Responsive, usabilidad/flujo cognitivo, velocidad/rendimiento visual, accesibilidad y errores amigables).
+
+**Respuesta:** del Frontend en la ejecución, pero sostener el estándar es del orquestador (coincide con la memoria ya guardada `feedback_frontend_quality`). Hasta ahora se aplicaba caso por caso en cada brief; quedó fijado como estándar durable en `frontend.md`, adaptado a este proyecto en vez de copiado literal:
+- **"Escritorio primero, usable hasta 375px"** en lugar de "mobile-first" — esta app es de uso interno, sobre todo en escritorio (tablas densas), con el celular como uso secundario.
+- Botones deshabilitados durante una acción en vuelo (sin doble envío), errores junto al campo, foco visible y teclado completo, contraste dentro de la paleta ya definida, "se entiende en menos de 5 segundos".
+- **Transiciones/micro-interacciones:** con moderación, no como regla general — el skill `frontend-design` ya advierte contra el exceso de movimiento como marca de un frontend genérico de IA.
+- **Rendimiento de renderizado:** deseable pero no es el foco del Frontend — si encuentra algo pesado, lo señala para un pase del Optimizador en vez de perseguirlo él mismo.
+
+`validador.md` ahora controla este estándar explícitamente, no solo se pide en `frontend.md` — evita que dependa de que cada brief lo repita.

@@ -22,6 +22,20 @@ Antes de diseñar cualquier pantalla o componente visual nuevo, **usá el skill 
 - **Feature flags:** `useFeatures()` (`habilitada`/`enPiloto`) de `src/features/FeaturesContext.tsx`. Sin la funcionalidad habilitada, el componente ni se monta ni hace fetch — nunca "se muestra pero deshabilitado" salvo que el brief lo pida así explícitamente.
 - Los campos de moneda que vienen del backend ya vienen normalizados a `"UYU"/"USD"/"EUR"` (nunca `"$"` literal) — confirmá el contrato real en `src/api/types.ts` antes de asumir un valor.
 
+## Estándar de UX/usabilidad — siempre, lo pida o no el brief
+
+El equipo que usa esta app (Rosina, Claudia, Lorena, Sabrina, Monserrat) la tiene abierta todo el día para su trabajo — no es opcional que sea rápida y clara. Esto es un piso, no algo que se negocia por fase:
+
+- **Escritorio primero, pero usable hasta 375px.** Esta app es sobre todo de escritorio (tablas densas: Bandeja, Estado de cuenta), no "mobile-first" — pero cada pantalla nueva tiene que probarse también a 375px, sin scroll horizontal y sin que nada quede tapado. Ya se probó así en cada fase (Bitácora, Alertas, Situación de la cuenta) — seguí el mismo criterio.
+- **Área de toque en mobile:** botones y controles interactivos, mínimo 44×44px con separación entre ellos — nada apretado para el dedo.
+- **Toda acción que pega a la API deshabilita su propio control mientras está en vuelo**, para que un doble clic no dispare la acción dos veces (mismo patrón que ya usan `useAccionesBitacora`/`useAccionesAlertas` con sus estados `enviando`). Nunca bloquees toda la pantalla por una sola acción — el resto sigue usable.
+- **Errores de formulario, junto al campo, nunca en un alert genérico.** Un mensaje claro de qué pasó y, si aplica, cómo seguir — nunca un "Error" pelado.
+- **Foco visible siempre** (`:focus-visible`), navegación por teclado completa en cualquier control nuevo (menús, paneles, filtros) — Tab/Shift+Tab, Escape para cerrar, flechas donde corresponda (roving tabindex en listas de opciones, como ya usa `ControlSituacionCuenta`).
+- **Contraste de texto alto**, dentro de la paleta ya definida en `tokens.css` — no inventar un gris más clarito "porque se ve prolijo".
+- **La pantalla entera se entiende en menos de 5 segundos.** Si un bloque nuevo necesita explicación para saber qué hace, es señal de simplificarlo, no de agregarle un texto de ayuda.
+- **Micro-interacciones y transiciones:** con moderación, nunca como regla general — el skill `frontend-design` ya explica por qué (es justo el tipo de detalle que hace que un frontend se vea "genérico de IA"). Usalas solo donde ayudan a mostrar qué cambió (abrir un panel, confirmar un guardado), no en cada hover.
+- **Renderizado eficiente** (evitar recálculos y funciones nuevas en cada render que rompan la memoización de un hijo) es deseable, pero no te desvíes de tu tarea por esto — si ves algo pesado de verdad, señalalo en tu reporte para un pase del Optimizador, no lo persigas vos.
+
 ## Reglas duras
 
 - **TDD real:** escribí el test, corrélo y confirmá que falla, recién ahí implementá.

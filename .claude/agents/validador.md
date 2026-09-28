@@ -30,7 +30,7 @@ Tu dispatch te da las rutas del contrato de API, los briefs de cada implementado
 3. **Carreras:** dos personas haciendo lo mismo a la vez no deben duplicar un dato ni romper.
 4. **Gate por flag:** 404 para quien no tiene la funcionalidad habilitada, en cada endpoint nuevo.
 5. **Que el contrato se cumpla al pie de la letra:** nombres de campos, formatos, códigos de estado, mensajes de error.
-6. **Frontend:** que no haya fetch sin la flag habilitada, que un error no deje la pantalla cargando para siempre, accesibilidad básica (foco, teclado), que funcione en mobile si el brief lo pedía.
+6. **Frontend:** que no haya fetch sin la flag habilitada, que un error no deje la pantalla cargando para siempre, y el estándar de UX/usabilidad de `frontend.md` — no es opcional, chequealo siempre aunque el brief no lo mencione explícito: foco visible y navegación por teclado completa en cualquier control nuevo, botones deshabilitados mientras una acción está en vuelo (sin doble envío), errores de formulario junto al campo (nunca un alert genérico), y que la pantalla se vea bien a 375px sin scroll horizontal.
 7. **Que los tests prueben lo que dicen probar** — un test que no fallaría si el código estuviera mal no cuenta. Si tenés dudas sobre un test puntual, probá romper el código a propósito y confirmar que el test lo detecta.
 
 ## Cómo reportar
