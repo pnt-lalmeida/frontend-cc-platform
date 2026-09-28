@@ -1,24 +1,40 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import type { BitacoraResponse, EventoBitacora, MiembroEquipo, TareaBitacora } from "../../api/types";
+import type {
+  BitacoraResponse,
+  EventoBitacora,
+  FiltroBitacora,
+  MiembroEquipo,
+  ResumenBitacora,
+  TareaBitacora,
+} from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
 import { formatDate, formatDateTime } from "../../design/format";
 import {
+  FILTROS,
   MAX_DESCRIPCION,
   MAX_NOTA,
-  agruparEventosPorDia,
+  SIN_GESTIONES,
   armarGestionRequest,
+  armarHistorial,
   armarRecordatorioRequest,
+  claveEvento,
   clasificarTareas,
+  describirGrupo,
+  describirRecordatorios,
+  describirUltimaGestion,
   describirVencimiento,
   esAutomatico,
   etiquetaEvento,
   fechaLocalISO,
+  guardarFiltro,
   hayErrores,
   horaLocal,
+  leerFiltroGuardado,
   nombreDeUsuario,
   responsablePorDefecto,
   sumarDias,
   validarGestion,
+  vacioDeFiltro,
   validarRecordatorio,
   type Errores,
   type FormGestion,
@@ -55,10 +71,48 @@ export function BitacoraActividad({
   enPiloto: boolean;
   usuarioActual: string | null;
 }) {
-  const { obtenerBitacora, api } = useApiBitacora();
-  const { datos, loading, error, recargar } = useBitacora(obtenerBitacora, cardCode);
+  const { fuentes, api } = useApiBitacora();
+  // Ultimo filtro elegido por esta persona; si localStorage falla, "Todo".
+  const [filtro, setFiltro] = useState<FiltroBitacora>(() => leerFiltroGuardado(usuarioActual));
+  const [usuarioDelFiltro, setUsuarioDelFiltro] = useState(usuarioActual);
+  const [eligioFiltro, setEligioFiltro] = useState(false);
+  // El usuario puede llegar despues del primer render (null -> UPN): si la
+  // persona todavia no eligio un filtro aca, se aplica el que tenia guardado.
+  // Ajuste de estado durante el render, sin efecto (mismo patron que
+  // useAccionesBitacora).
+  if (usuarioDelFiltro !== usuarioActual) {
+    setUsuarioDelFiltro(usuarioActual);
+    if (usuarioDelFiltro === null && usuarioActual !== null && !eligioFiltro) {
+      setFiltro(leerFiltroGuardado(usuarioActual));
+    }
+  }
+  const bitacora = useBitacora(fuentes, cardCode, filtro);
+  const { datos, loading, error, recargar } = bitacora;
   const acciones = useAccionesBitacora(api, cardCode, recargar);
   const hoy = fechaLocalISO(new Date());
+  const [resaltada, resaltar] = useResaltado();
+
+  function elegirFiltro(nuevo: FiltroBitacora) {
+    setFiltro(nuevo);
+    setEligioFiltro(true);
+    guardarFiltro(usuarioActual, nuevo);
+  }
+
+  // Lleva a la ultima gestion si esta cargada (con el filtro vigente y las
+  // paginas pedidas); si no, el resumen no la ofrece como enlace.
+  const ultimaGestion = datos?.resumen?.ultima_gestion ?? null;
+  const claveUltima = ultimaGestion ? claveEvento(ultimaGestion) : null;
+  const ultimaCargada = claveUltima !== null && bitacora.eventos.some((e) => claveEvento(e) === claveUltima);
+
+  function irAUltimaGestion() {
+    if (!claveUltima || !ultimaCargada) return;
+    const nodo = document.getElementById(idItem(claveUltima));
+    if (!nodo) return;
+    const reducir = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    nodo.scrollIntoView?.({ block: "center", behavior: reducir ? "auto" : "smooth" });
+    nodo.focus({ preventScroll: true });
+    resaltar(claveUltima);
+  }
 
   let contenido: ReactNode;
   if (!datos) {
@@ -75,6 +129,14 @@ export function BitacoraActividad({
   } else {
     contenido = (
       <>
+        {datos.resumen && (
+          <ResumenActividad
+            resumen={datos.resumen}
+            equipo={datos.equipo}
+            hoy={hoy}
+            onIrAUltima={ultimaCargada ? irAUltimaGestion : undefined}
+          />
+        )}
         {datos.cliente.pagador_central && (
           <div
             style={{
@@ -120,7 +182,15 @@ export function BitacoraActividad({
           </section>
 
           <section className="bitacora-area-historial" aria-labelledby="bitacora-historial">
-            <Historial eventos={datos.eventos} equipo={datos.equipo} hoy={hoy} cardCodeActual={cardCode} />
+            <Historial
+              bitacora={bitacora}
+              equipo={datos.equipo}
+              hoy={hoy}
+              cardCodeActual={cardCode}
+              filtro={filtro}
+              onFiltro={elegirFiltro}
+              resaltada={resaltada}
+            />
           </section>
         </div>
       </>
@@ -316,122 +386,354 @@ function FilaTarea({
   );
 }
 
+/* --------------------------------------------------------------- resumen */
+
+function idItem(clave: string): string {
+  return `bitacora-item-${clave.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+}
+
+// Resalta un evento unos segundos (clic en "Última gestión").
+function useResaltado(): [string | null, (clave: string) => void] {
+  const [clave, setClave] = useState<string | null>(null);
+  const [vuelta, setVuelta] = useState(0);
+  useEffect(() => {
+    if (!clave) return;
+    const t = setTimeout(() => setClave(null), 2400);
+    return () => clearTimeout(t);
+  }, [clave, vuelta]);
+  return [
+    clave,
+    (nueva: string) => {
+      setClave(nueva);
+      setVuelta((v) => v + 1);
+    },
+  ];
+}
+
+function ResumenActividad({
+  resumen,
+  equipo,
+  hoy,
+  onIrAUltima,
+}: {
+  resumen: ResumenBitacora;
+  equipo: MiembroEquipo[];
+  hoy: string;
+  onIrAUltima?: () => void;
+}) {
+  const gestion = describirUltimaGestion(resumen.ultima_gestion, equipo, hoy);
+  const recordatorios = describirRecordatorios(resumen.tareas_pendientes, resumen.tareas_vencidas);
+  const textoGestion = gestion && (
+    <>
+      <strong style={{ fontWeight: 600 }}>{gestion.cuando}</strong> — {gestion.detalle}
+    </>
+  );
+
+  return (
+    <div className="bitacora-resumen" aria-label="Resumen de actividad" role="group">
+      <span>
+        {gestion ? (
+          <>
+            <span style={{ color: "var(--color-muted)" }}>Última gestión: </span>
+            {onIrAUltima ? (
+              <button type="button" className="bitacora-resumen-enlace" onClick={onIrAUltima} title="Ver en el historial">
+                {textoGestion}
+              </button>
+            ) : (
+              <span>{textoGestion}</span>
+            )}
+          </>
+        ) : (
+          <span style={{ color: "var(--color-muted)" }}>{SIN_GESTIONES}</span>
+        )}
+      </span>
+      {recordatorios && (
+        <span className="bitacora-resumen-recordatorios">
+          <span className="bitacora-resumen-sep" aria-hidden>
+            {" · "}
+          </span>
+          {recordatorios.pendientes}
+          {recordatorios.vencidas && (
+            <span style={{ color: "var(--color-risk)", fontWeight: 600 }}> ({recordatorios.vencidas})</span>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------- historial */
 
 function Historial({
-  eventos,
+  bitacora,
   equipo,
   hoy,
   cardCodeActual,
+  filtro,
+  onFiltro,
+  resaltada,
 }: {
-  eventos: EventoBitacora[];
+  bitacora: ReturnType<typeof useBitacora>;
   equipo: MiembroEquipo[];
   hoy: string;
   cardCodeActual: string;
+  filtro: FiltroBitacora;
+  onFiltro: (filtro: FiltroBitacora) => void;
+  resaltada: string | null;
 }) {
-  const grupos = useMemo(() => agruparEventosPorDia(eventos, hoy), [eventos, hoy]);
+  const { eventos, hayMas, cargandoEventos, errorEventos, anteriores } = bitacora;
+  const dias = useMemo(() => armarHistorial(eventos, hoy), [eventos, hoy]);
+
+  let cuerpo: ReactNode;
+  if (cargandoEventos) {
+    cuerpo = (
+      <p style={{ color: "var(--color-muted)", fontSize: 13, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+        <span className="spinner" aria-hidden /> Cargando historial…
+      </p>
+    );
+  } else if (errorEventos) {
+    cuerpo = (
+      <div role="alert">
+        <p style={{ ...ERROR, margin: 0 }}>{errorEventos}</p>
+        <button type="button" onClick={() => void bitacora.recargar()} style={{ ...botonTexto, marginTop: 6 }}>
+          Reintentar
+        </button>
+      </div>
+    );
+  } else if (dias.length === 0) {
+    cuerpo = (
+      <div style={{ border: "1px dashed var(--color-line-strong)", borderRadius: 8, padding: "18px 16px", color: "var(--color-muted)", fontSize: 13 }}>
+        {vacioDeFiltro(filtro)}
+      </div>
+    );
+  } else {
+    cuerpo = (
+      <>
+        {dias.map((dia) => (
+          <div key={dia.clave} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-ink)", margin: "0 0 6px" }}>{dia.titulo}</div>
+            <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {dia.items.map((item, i) => {
+                const ultimo = i === dia.items.length - 1;
+                if (item.tipo === "grupo") {
+                  return <ItemGrupo key={item.clave} eventos={item.eventos} equipo={equipo} ultimo={ultimo} cardCodeActual={cardCodeActual} />;
+                }
+                const Item = esAutomatico(item.evento) ? ItemAutomatico : ItemEvento;
+                return (
+                  <Item
+                    key={item.clave}
+                    id={idItem(item.clave)}
+                    evento={item.evento}
+                    equipo={equipo}
+                    ultimo={ultimo}
+                    cardCodeActual={cardCodeActual}
+                    resaltado={resaltada === item.clave}
+                  />
+                );
+              })}
+            </ol>
+          </div>
+        ))}
+        {hayMas && (
+          <div style={{ marginTop: 4 }}>
+            <button
+              type="button"
+              className="bitacora-ver-anteriores"
+              onClick={() => void anteriores.cargar()}
+              disabled={anteriores.cargando}
+              aria-busy={anteriores.cargando}
+            >
+              {anteriores.cargando && <span className="spinner" aria-hidden />}
+              {anteriores.cargando ? "Cargando anteriores…" : "Ver anteriores"}
+            </button>
+            {anteriores.error && (
+              <p role="alert" style={ERROR}>
+                {anteriores.error}
+              </p>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
-      <p id="bitacora-historial" style={{ ...ETIQUETA, marginBottom: 10 }}>
-        Historial
-      </p>
-      {grupos.length === 0 ? (
-        <div style={{ border: "1px dashed var(--color-line-strong)", borderRadius: 8, padding: "18px 16px", color: "var(--color-muted)", fontSize: 13 }}>
-          Todavía no hay gestiones registradas para este cliente. Registrá la primera con el formulario.
-        </div>
-      ) : (
-        <div>
-          {grupos.map((grupo) => (
-            <div key={grupo.clave} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-ink)", margin: "0 0 6px" }}>{grupo.titulo}</div>
-              <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                {grupo.eventos.map((e, i) => (
-                  <ItemEvento
-                    key={e.id ?? `${e.referencia}-${e.fecha_utc}-${i}`}
-                    evento={e}
-                    equipo={equipo}
-                    ultimo={i === grupo.eventos.length - 1}
-                    cardCodeActual={cardCodeActual}
-                  />
-                ))}
-              </ol>
-            </div>
+      <div className="bitacora-historial-cabecera">
+        <p id="bitacora-historial" style={ETIQUETA}>
+          Historial
+        </p>
+        <div role="group" aria-label="Filtrar historial" className="bitacora-filtros">
+          {FILTROS.map((f) => (
+            <button key={f.clave} type="button" aria-pressed={f.clave === filtro} onClick={() => f.clave !== filtro && onFiltro(f.clave)}>
+              {f.etiqueta}
+            </button>
           ))}
         </div>
-      )}
+      </div>
+      {cuerpo}
     </>
   );
 }
 
-function ItemEvento({
-  evento,
-  equipo,
-  ultimo,
-  cardCodeActual,
-}: {
+interface PropsItem {
+  id: string;
   evento: EventoBitacora;
   equipo: MiembroEquipo[];
   ultimo: boolean;
   cardCodeActual: string;
-}) {
-  const auto = esAutomatico(evento);
+  resaltado: boolean;
+}
+
+// Riel del timeline: punto lleno para gestiones de una persona, hueco para lo automatico.
+function Riel({ ultimo, auto }: { ultimo: boolean; auto: boolean }) {
   return (
-    <li className="bitacora-evento" style={{ display: "grid", gridTemplateColumns: "44px 14px 1fr", columnGap: 8 }}>
-      <time
-        dateTime={evento.fecha_utc}
-        title={formatDateTime(evento.fecha_utc)}
-        style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-muted)", paddingTop: 1, textAlign: "right" }}
-      >
-        {horaLocal(evento.fecha_utc)}
-      </time>
-      {/* Riel del timeline: punto lleno para gestiones de una persona, hueco para lo automatico. */}
-      <div aria-hidden style={{ position: "relative", display: "flex", justifyContent: "center" }}>
-        {!ultimo && <span style={{ position: "absolute", top: 14, bottom: -4, width: 1, background: "var(--color-line)" }} />}
-        <span
-          style={{
-            marginTop: 5,
-            width: auto ? 7 : 9,
-            height: auto ? 7 : 9,
-            borderRadius: "50%",
-            boxSizing: "border-box",
-            background: auto ? "var(--color-surface)" : "var(--color-accent)",
-            border: auto ? "1.5px solid var(--color-line-strong)" : "none",
-          }}
-        />
-      </div>
-      <div style={{ paddingBottom: ultimo ? 0 : 12, minWidth: 0 }}>
-        <div style={{ fontSize: auto ? 13 : 14, fontWeight: auto ? 500 : 600, color: auto ? "var(--color-muted)" : "var(--color-ink)" }}>
-          {evento.resultado}
-        </div>
+    <div aria-hidden style={{ position: "relative", display: "flex", justifyContent: "center" }}>
+      {!ultimo && <span style={{ position: "absolute", top: 14, bottom: -4, width: 1, background: "var(--color-line)" }} />}
+      <span
+        style={{
+          marginTop: 5,
+          width: auto ? 7 : 9,
+          height: auto ? 7 : 9,
+          borderRadius: "50%",
+          boxSizing: "border-box",
+          background: auto ? "var(--color-surface)" : "var(--color-accent)",
+          border: auto ? "1.5px solid var(--color-line-strong)" : "none",
+        }}
+      />
+    </div>
+  );
+}
+
+function Hora({ fecha }: { fecha: string }) {
+  return (
+    <time
+      dateTime={fecha}
+      title={formatDateTime(fecha)}
+      style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-muted)", paddingTop: 1, textAlign: "right" }}
+    >
+      {horaLocal(fecha)}
+    </time>
+  );
+}
+
+function EtiquetaAutomatico() {
+  return (
+    <span className="bitacora-tag" style={{ fontSize: 10.5, padding: "0 6px", borderRadius: 10, border: "1px solid var(--color-line)", color: "var(--color-muted)", whiteSpace: "nowrap" }}>
+      automático
+    </span>
+  );
+}
+
+function OtraCuenta({ evento, cardCodeActual }: { evento: EventoBitacora; cardCodeActual: string }) {
+  if (!evento.card_code || evento.card_code === cardCodeActual) return null;
+  return (
+    <span className="bitacora-otra-cuenta" style={{ fontFamily: "var(--font-mono)", fontSize: 11 }} title="Registrado desde esta cuenta">
+      {evento.card_code}
+    </span>
+  );
+}
+
+const SEP = (
+  <span aria-hidden className="bitacora-sep" style={{ color: "var(--color-line-strong)" }}>
+    ·
+  </span>
+);
+
+// Gestion del equipo: el protagonista del historial (punto lleno, motivo en
+// negrita, nota completa).
+function ItemEvento({ id, evento, equipo, ultimo, cardCodeActual, resaltado }: PropsItem) {
+  return (
+    <li id={id} tabIndex={-1} className={`bitacora-evento${resaltado ? " bitacora-resaltado" : ""}`}>
+      <Hora fecha={evento.fecha_utc} />
+      <Riel ultimo={ultimo} auto={false} />
+      <div style={{ paddingBottom: ultimo ? 0 : 14, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-ink)" }}>{evento.resultado}</div>
         <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2, display: "flex", flexWrap: "wrap", gap: "2px 6px", alignItems: "center" }}>
           <span>{etiquetaEvento(evento)}</span>
-          <span aria-hidden>·</span>
+          {SEP}
           <span>{nombreDeUsuario(evento.origen, equipo)}</span>
-          {auto && (
-            <span style={{ fontSize: 10.5, padding: "0 6px", borderRadius: 10, border: "1px solid var(--color-line)", color: "var(--color-muted)" }}>
-              automático
-            </span>
-          )}
-          {evento.card_code && evento.card_code !== cardCodeActual && (
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11 }} title="Registrado desde esta cuenta">
-              {evento.card_code}
-            </span>
-          )}
+          <OtraCuenta evento={evento} cardCodeActual={cardCodeActual} />
         </div>
         {evento.nota && (
-          <div
-            style={{
-              fontSize: auto ? 12.5 : 13,
-              color: auto ? "var(--color-muted)" : "var(--color-ink)",
-              marginTop: 4,
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              maxWidth: "70ch",
-            }}
-          >
+          <div style={{ fontSize: 13, color: "var(--color-ink)", marginTop: 4, whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: "70ch" }}>
             {evento.nota}
           </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// Automatico suelto: una sola linea, en segundo plano.
+function ItemAutomatico({ id, evento, equipo, ultimo, cardCodeActual, resaltado }: PropsItem) {
+  return (
+    <li id={id} tabIndex={-1} className={`bitacora-evento${resaltado ? " bitacora-resaltado" : ""}`}>
+      <Hora fecha={evento.fecha_utc} />
+      <Riel ultimo={ultimo} auto />
+      <div className="bitacora-auto-linea" style={{ paddingBottom: ultimo ? 0 : 10 }}>
+        <span style={{ fontWeight: 500 }}>{evento.resultado}</span>
+        {evento.nota && (
+          <>
+            {SEP}
+            <span style={{ overflowWrap: "anywhere" }}>{evento.nota}</span>
+          </>
+        )}
+        {SEP}
+        <span>{nombreDeUsuario(evento.origen, equipo)}</span>
+        <OtraCuenta evento={evento} cardCodeActual={cardCodeActual} />
+        <EtiquetaAutomatico />
+      </div>
+    </li>
+  );
+}
+
+// Varios automaticos seguidos del mismo dia y resultado: una fila colapsada.
+function ItemGrupo({
+  eventos,
+  equipo,
+  ultimo,
+  cardCodeActual,
+}: {
+  eventos: EventoBitacora[];
+  equipo: MiembroEquipo[];
+  ultimo: boolean;
+  cardCodeActual: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const { titulo, quien, rango } = describirGrupo(eventos, equipo);
+
+  return (
+    <li className="bitacora-evento">
+      <span aria-hidden />
+      <Riel ultimo={ultimo} auto />
+      <div style={{ paddingBottom: ultimo ? 0 : 10, minWidth: 0 }}>
+        <button type="button" className="bitacora-grupo-boton bitacora-auto-linea" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
+          <span aria-hidden className="bitacora-chevron" data-abierto={abierto}>
+            ›
+          </span>
+          <span style={{ fontWeight: 500 }}>{titulo}</span>
+          {SEP}
+          <span>{quien}</span>
+          {SEP}
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, whiteSpace: "nowrap" }}>{rango}</span>
+          <EtiquetaAutomatico />
+        </button>
+        {abierto && (
+          <ul className="bitacora-grupo-detalle">
+            {eventos.map((e) => (
+              <li key={claveEvento(e)}>
+                <time dateTime={e.fecha_utc} title={formatDateTime(e.fecha_utc)} style={{ fontFamily: "var(--font-mono)", fontSize: 11.5 }}>
+                  {horaLocal(e.fecha_utc)}
+                </time>
+                {SEP}
+                <span style={{ overflowWrap: "anywhere" }}>{e.nota ?? "Sin motivo"}</span>
+                {SEP}
+                <span>{nombreDeUsuario(e.origen, equipo)}</span>
+                <OtraCuenta evento={e} cardCodeActual={cardCodeActual} />
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </li>

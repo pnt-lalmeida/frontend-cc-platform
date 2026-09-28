@@ -263,3 +263,12 @@ Las dos van con su flag, en piloto.
 - Necesita una consulta a HANA de toda la cartera y un corte semanal guardado en Azure SQL (la variación arranca desde el primer corte).
 - Queda por decidir el día y la hora del corte, y si se muestra un total consolidado con tipo de cambio.
 - Orden sugerido: antes de "Mi día", que puede reusar su consulta.
+
+### 28/09/2026 — Bitácora v2: paginado, filtros, automáticos agrupados y resumen
+**Decisión de Líber:** mirando una captura con pocos días de uso, pidió mejorar la legibilidad del historial antes de pasar a `main`. Aprobó los 4 cambios propuestos:
+- historial de a 30 eventos, con "Ver anteriores";
+- automáticos agrupados en una línea;
+- filtros Todo / Gestiones / Autorizaciones / Situación;
+- una línea de resumen con la última gestión y los recordatorios pendientes.
+
+**Hallazgo:** además de la legibilidad, el GET devolvía todo el historial sin límite. Ahora está paginado. Detalle en `Architecture.md` punto 53.

@@ -535,6 +535,40 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **"Hoy" en Montevideo** en todo Cliente 360: `src/utils/fechas.ts` (`hoyUruguay`, `diaCalendario`), usado por `facturaVencida`, `resumenSaldos` (atraso actual), la antigüedad y la situación. Antes, entre las 21 y las 24 h de Uruguay, las facturas figuraban vencidas y con atraso un día antes. La Bitácora usa la zona del navegador, que está bien para usuarios en Uruguay.
     - **Validador:** con observaciones, todas corregidas. El cuadre exacto de los enteros redondeados queda aceptado.
     - Tests: 500 backend, 306 frontend.
+53. **`IMPLEMENTADO 28/09/2026` — Bitácora v2: historial paginado, filtros, automáticos agrupados y resumen.**
+    - **Motivo:** feedback de Líber con captura. Las autorizaciones automáticas ocupaban 3 líneas cada una y tapaban las gestiones. Además, el GET devolvía **todo** el historial, sin límite.
+    - **Backend:**
+      - **Endpoints:**
+        - `GET /api/clientes/{card_code}/bitacora?tipo=` devuelve la primera página: 30 eventos (`BITACORA_PAGINA`), más `hay_mas`, `siguiente` y `resumen`.
+        - `GET .../bitacora/eventos?antes_de=&tipo=` es para "Ver anteriores" y para cambiar de filtro.
+      - **Filtros:**
+        - `todo`;
+        - `gestiones` (manuales más "Recordatorio completado");
+        - `autorizaciones` (decisiones de la Bandeja);
+        - `situacion`.
+        - Si el filtro no aplica a una fuente, esa fuente no se consulta.
+      - **`resumen`:**
+        - es la última gestión manual del cliente, aunque esté fuera de la página;
+        - suma las tareas pendientes y vencidas (fecha de Uruguay);
+        - nunca se filtra.
+      - **Cursor:**
+        - estricto, sobre el `fecha_utc` del último evento. Los empates en el corte extienden la página.
+        - En SQL la cota es conservadora (segundo siguiente, en formato de segundos) y el filtrado exacto se hace en Python, porque `crm_eventos` guarda segundos y `bandeja_decisiones` microsegundos.
+        - Cada fuente se pide con `TOP (?)` y reintenta con el doble si el descarte o los empates dejan la página corta.
+        - Las decisiones se piden en una sola consulta, con `IN` parametrizado.
+        - Un cursor fuera de rango da 400.
+      - **Validación:** con pruebas de propiedades (400 escenarios × 4 filtros), sin eventos perdidos ni duplicados.
+    - **Frontend:**
+      - una línea de resumen arriba ("Última gestión: hace N días — motivo (persona) · N recordatorios pendientes (N vencidos)");
+      - chips de filtro, que recuerdan el último filtro por persona en `localStorage`;
+      - automáticos consecutivos del mismo día y el mismo resultado en una fila desplegable ("3 pedidos autorizados · 14:49–21:50"), y un automático suelto en una sola línea;
+      - las gestiones mantienen su formato, con la nota completa;
+      - "Ver anteriores".
+    - **Bugs corregidos:**
+      - la pestaña quedaba cargando al volver a un cliente ya visto después de un error;
+      - el historial quedaba cargando si fallaba una carga completa pedida con otro filtro.
+    - **Dato faltante, no es bug:** Líber no está en `usuarios_sap`, que tiene 7 usuarios activos. Por eso ve su UPN en lugar de su nombre y no aparece como responsable posible.
+    - Tests: 554 en backend y 353 en frontend.
 
 ## 10. Gotchas ya pagados
 

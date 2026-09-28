@@ -252,13 +252,34 @@ export interface EventoBitacora {
   card_code: string | null;
 }
 
-export interface BitacoraResponse {
+// Bitacora v2 (28/09/2026): filtro del historial (?tipo=). "gestiones" incluye
+// los "Recordatorio completado"; "autorizaciones" son las decisiones de la Bandeja.
+export type FiltroBitacora = "todo" | "gestiones" | "autorizaciones" | "situacion";
+
+// Siempre sobre todo el cliente, sin filtrar.
+export interface ResumenBitacora {
+  // Evento manual mas reciente, aunque no este en la primera pagina.
+  ultima_gestion: EventoBitacora | null;
+  // Incluye las vencidas.
+  tareas_pendientes: number;
+  tareas_vencidas: number;
+}
+
+// Pagina de eventos: como maximo 30, fecha_utc descendente. `siguiente` es el
+// cursor para GET .../bitacora/eventos?antes_de=.
+export interface PaginaEventosBitacora {
+  eventos: EventoBitacora[];
+  hay_mas: boolean;
+  siguiente: string | null;
+}
+
+export interface BitacoraResponse extends PaginaEventosBitacora {
   cliente: BitacoraCliente;
   motivos: string[];
   canales: string[];
   equipo: MiembroEquipo[];
   tareas: TareaBitacora[];
-  eventos: EventoBitacora[];
+  resumen: ResumenBitacora;
 }
 
 export interface RegistrarGestionRequest {

@@ -2,6 +2,7 @@ import { ApiError } from "../../api/client";
 import type {
   CrearRecordatorioRequest,
   EventoBitacora,
+  FiltroBitacora,
   MiembroEquipo,
   RegistrarGestionRequest,
   TareaBitacora,
@@ -122,6 +123,191 @@ export function horaLocal(isoTimestamp: string): string {
   const fecha = new Date(isoTimestamp);
   if (Number.isNaN(fecha.getTime())) return "";
   return `${dosDigitos(fecha.getHours())}:${dosDigitos(fecha.getMinutes())}`;
+}
+
+/* ------------------------------------------------ Bitácora v2 (28/09/2026) */
+
+// Los automaticos de la Bandeja no tienen id (se arman en la lectura): la
+// clave es su referencia + instante.
+export function claveEvento(evento: EventoBitacora): string {
+  return evento.id !== null ? `e${evento.id}` : `${evento.referencia ?? "sin-ref"}@${evento.fecha_utc}`;
+}
+
+export type ItemHistorial =
+  | { tipo: "evento"; clave: string; evento: EventoBitacora }
+  | { tipo: "grupo"; clave: string; resultado: string; eventos: EventoBitacora[] };
+
+export interface DiaHistorial {
+  clave: string;
+  titulo: string;
+  items: ItemHistorial[];
+}
+
+function diaLocal(evento: EventoBitacora): string {
+  return fechaLocalISO(new Date(evento.fecha_utc));
+}
+
+// Automaticos consecutivos del mismo dia local y el mismo resultado van en un
+// solo grupo; uno suelto queda como evento. Las gestiones cortan el grupo.
+export function agruparAutomaticos(eventos: EventoBitacora[]): ItemHistorial[] {
+  const items: ItemHistorial[] = [];
+  let corrida: EventoBitacora[] = [];
+  const cerrar = () => {
+    if (corrida.length === 1) items.push({ tipo: "evento", clave: claveEvento(corrida[0]), evento: corrida[0] });
+    else if (corrida.length > 1)
+      items.push({ tipo: "grupo", clave: `g:${claveEvento(corrida[0])}`, resultado: corrida[0].resultado, eventos: corrida });
+    corrida = [];
+  };
+  for (const e of eventos) {
+    if (!esAutomatico(e)) {
+      cerrar();
+      items.push({ tipo: "evento", clave: claveEvento(e), evento: e });
+      continue;
+    }
+    const previo = corrida[0];
+    if (previo && (previo.resultado !== e.resultado || diaLocal(previo) !== diaLocal(e))) cerrar();
+    corrida.push(e);
+  }
+  cerrar();
+  return items;
+}
+
+// Se arma siempre sobre todo lo cargado: al sumar una pagina que sigue el
+// mismo dia, el dia completo se reagrupa (no queda un grupo partido).
+export function armarHistorial(eventos: EventoBitacora[], hoy: string): DiaHistorial[] {
+  return agruparEventosPorDia(eventos, hoy).map((dia) => ({
+    clave: dia.clave,
+    titulo: dia.titulo,
+    items: agruparAutomaticos(dia.eventos),
+  }));
+}
+
+const PLURALES: Record<string, [string, string]> = {
+  "Pedido autorizado": ["pedido autorizado", "pedidos autorizados"],
+  "Pedido rechazado": ["pedido rechazado", "pedidos rechazados"],
+  "Recordatorio completado": ["recordatorio completado", "recordatorios completados"],
+  "Situación de la cuenta": ["cambio de situación de la cuenta", "cambios de situación de la cuenta"],
+};
+
+export function tituloGrupo(resultado: string, cantidad: number): string {
+  const formas = PLURALES[resultado];
+  if (!formas) return `${resultado} (${cantidad})`;
+  return `${cantidad} ${cantidad === 1 ? formas[0] : formas[1]}`;
+}
+
+export interface DescripcionGrupo {
+  titulo: string;
+  quien: string;
+  rango: string;
+}
+
+// `eventos` viene en fecha descendente (como la API): el rango va del ultimo
+// (mas temprano) al primero.
+export function describirGrupo(eventos: EventoBitacora[], equipo: MiembroEquipo[]): DescripcionGrupo {
+  const personas = new Set(eventos.map((e) => e.origen.toLowerCase()));
+  const desde = horaLocal(eventos[eventos.length - 1].fecha_utc);
+  const hasta = horaLocal(eventos[0].fecha_utc);
+  return {
+    titulo: tituloGrupo(eventos[0].resultado, eventos.length),
+    quien: personas.size === 1 ? nombreDeUsuario(eventos[0].origen, equipo) : `${personas.size} personas`,
+    rango: desde === hasta ? desde : `${desde}–${hasta}`,
+  };
+}
+
+const DIAS_RELATIVOS = 60;
+
+export function haceCuanto(isoTimestamp: string, hoy: string): string {
+  const dia = fechaLocalISO(new Date(isoTimestamp));
+  const dias = diferenciaDias(dia, hoy);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  if (dias <= DIAS_RELATIVOS) return `hace ${dias} días`;
+  return `el ${formatDate(dia)}`;
+}
+
+export interface DescripcionUltimaGestion {
+  cuando: string;
+  detalle: string;
+}
+
+export const SIN_GESTIONES = "Todavía no hay gestiones registradas";
+
+export function describirUltimaGestion(
+  evento: EventoBitacora | null,
+  equipo: MiembroEquipo[],
+  hoy: string
+): DescripcionUltimaGestion | null {
+  if (!evento) return null;
+  return {
+    cuando: haceCuanto(evento.fecha_utc, hoy),
+    detalle: `${evento.resultado} (${nombreDeUsuario(evento.origen, equipo)})`,
+  };
+}
+
+export function textoUltimaGestion(evento: EventoBitacora | null, equipo: MiembroEquipo[], hoy: string): string {
+  const d = describirUltimaGestion(evento, equipo, hoy);
+  return d ? `Última gestión: ${d.cuando} — ${d.detalle}` : SIN_GESTIONES;
+}
+
+export interface DescripcionRecordatorios {
+  pendientes: string;
+  vencidas: string | null;
+}
+
+// `pendientes` incluye las vencidas (contrato del resumen).
+export function describirRecordatorios(pendientes: number, vencidas: number): DescripcionRecordatorios | null {
+  if (pendientes <= 0) return null;
+  return {
+    pendientes: `${pendientes} ${pendientes === 1 ? "recordatorio pendiente" : "recordatorios pendientes"}`,
+    vencidas: vencidas > 0 ? `${vencidas} ${vencidas === 1 ? "vencido" : "vencidos"}` : null,
+  };
+}
+
+export const FILTROS: ReadonlyArray<{ clave: FiltroBitacora; etiqueta: string }> = [
+  { clave: "todo", etiqueta: "Todo" },
+  { clave: "gestiones", etiqueta: "Gestiones" },
+  { clave: "autorizaciones", etiqueta: "Autorizaciones" },
+  { clave: "situacion", etiqueta: "Situación" },
+];
+
+export function esFiltro(valor: unknown): valor is FiltroBitacora {
+  return FILTROS.some((f) => f.clave === valor);
+}
+
+// "Registrar" y no "el panel de la derecha": en celular el panel queda arriba.
+const VACIOS: Record<FiltroBitacora, string> = {
+  todo: "Todavía no hay actividad para este cliente. Registrá la primera gestión desde el panel Registrar.",
+  gestiones: "No hay gestiones registradas. Registrá la primera desde el panel Registrar.",
+  autorizaciones: "No hay pedidos autorizados ni rechazados desde la Bandeja para este cliente.",
+  situacion: "No hay cambios de situación de la cuenta registrados.",
+};
+
+export function vacioDeFiltro(filtro: FiltroBitacora): string {
+  return VACIOS[filtro];
+}
+
+// Por persona: en una PC compartida cada usuario recupera su propio filtro.
+export function claveFiltroGuardado(usuario: string | null): string {
+  return `pontyn.bitacora.filtro:${(usuario ?? "").toLowerCase()}`;
+}
+
+// localStorage puede no existir o tirar (modo privado, bloqueado): nunca rompe
+// la pestaña, queda en "Todo".
+export function leerFiltroGuardado(usuario: string | null): FiltroBitacora {
+  try {
+    const valor = window.localStorage.getItem(claveFiltroGuardado(usuario));
+    return esFiltro(valor) ? valor : "todo";
+  } catch {
+    return "todo";
+  }
+}
+
+export function guardarFiltro(usuario: string | null, filtro: FiltroBitacora): void {
+  try {
+    window.localStorage.setItem(claveFiltroGuardado(usuario), filtro);
+  } catch {
+    // Sin persistencia: el filtro vale solo mientras la pestaña esta abierta.
+  }
 }
 
 export interface FormGestion {

@@ -1,8 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/client";
 import type { EventoBitacora, MiembroEquipo, TareaBitacora } from "../../api/types";
 import {
+  FILTROS,
+  agruparAutomaticos,
   agruparEventosPorDia,
+  armarHistorial,
+  claveEvento,
+  claveFiltroGuardado,
+  describirGrupo,
+  describirRecordatorios,
+  describirUltimaGestion,
+  esFiltro,
+  guardarFiltro,
+  haceCuanto,
+  leerFiltroGuardado,
+  textoUltimaGestion,
+  tituloGrupo,
+  vacioDeFiltro,
   armarGestionRequest,
   armarRecordatorioRequest,
   clasificarTareas,
@@ -266,5 +281,234 @@ describe("mensajeDeErrorApi", () => {
       "No se pudo registrar la gestión."
     );
     expect(mensajeDeErrorApi(new ApiError(500, undefined), "x")).toBe("x");
+  });
+});
+
+/* ------------------------------------------------------ Bitácora v2 (28/09) */
+
+// Instantes armados en hora local: la agrupación es por día local y las horas
+// se muestran en hora local, así el test no depende del huso de la máquina.
+function local(dia: number, hora: number, minuto = 0): string {
+  return new Date(2026, 8, dia, hora, minuto).toISOString();
+}
+
+function autorizacion(parcial: Partial<EventoBitacora> = {}): EventoBitacora {
+  return evento({
+    id: null,
+    tipo: "automatico",
+    canal: null,
+    resultado: "Pedido autorizado",
+    nota: "Motivo: Cliente al día",
+    referencia: "decision:1400895",
+    ...parcial,
+  });
+}
+
+describe("claveEvento", () => {
+  it("usa el id si lo tiene, y si no referencia + fecha", () => {
+    expect(claveEvento(evento({ id: 7 }))).toBe("e7");
+    expect(claveEvento(autorizacion({ fecha_utc: "2026-09-25T15:00:00+00:00" }))).toBe(
+      "decision:1400895@2026-09-25T15:00:00+00:00"
+    );
+  });
+});
+
+describe("agruparAutomaticos", () => {
+  it("junta automáticos consecutivos del mismo día y el mismo resultado", () => {
+    const a1 = autorizacion({ referencia: "decision:1", fecha_utc: local(25, 21, 50) });
+    const a2 = autorizacion({ referencia: "decision:2", fecha_utc: local(25, 18, 0) });
+    const a3 = autorizacion({ referencia: "decision:3", fecha_utc: local(25, 14, 49) });
+
+    const items = agruparAutomaticos([a1, a2, a3]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ tipo: "grupo", resultado: "Pedido autorizado", eventos: [a1, a2, a3] });
+    // La clave es la del más reciente: estable al sumar páginas más viejas.
+    expect(items[0].clave).toBe(`g:${claveEvento(a1)}`);
+  });
+
+  it("un automático suelto queda como evento, no como grupo de uno", () => {
+    const a = autorizacion();
+    expect(agruparAutomaticos([a])).toEqual([{ tipo: "evento", clave: claveEvento(a), evento: a }]);
+  });
+
+  it("una gestión manual en el medio corta el grupo", () => {
+    const a1 = autorizacion({ referencia: "decision:1", fecha_utc: local(25, 20) });
+    const m = evento({ id: 9, fecha_utc: local(25, 19) });
+    const a2 = autorizacion({ referencia: "decision:2", fecha_utc: local(25, 18) });
+    const a3 = autorizacion({ referencia: "decision:3", fecha_utc: local(25, 17) });
+
+    const items = agruparAutomaticos([a1, m, a2, a3]);
+
+    expect(items.map((i) => i.tipo)).toEqual(["evento", "evento", "grupo"]);
+  });
+
+  it("no junta resultados distintos ni días distintos", () => {
+    const aut = autorizacion({ referencia: "decision:1", fecha_utc: local(25, 20) });
+    const rech = autorizacion({ referencia: "decision:2", resultado: "Pedido rechazado", fecha_utc: local(25, 19) });
+    const hoy = autorizacion({ referencia: "decision:3", fecha_utc: local(25, 8) });
+    const ayer = autorizacion({ referencia: "decision:4", fecha_utc: local(24, 22) });
+
+    expect(agruparAutomaticos([aut, rech, hoy, ayer]).map((i) => i.tipo)).toEqual([
+      "evento",
+      "evento",
+      "evento",
+      "evento",
+    ]);
+  });
+});
+
+describe("armarHistorial", () => {
+  it("agrupa por día y dentro de cada día junta los automáticos", () => {
+    const a1 = autorizacion({ referencia: "decision:1", fecha_utc: local(25, 20) });
+    const a2 = autorizacion({ referencia: "decision:2", fecha_utc: local(25, 19) });
+    const m = evento({ id: 3, fecha_utc: local(24, 10) });
+
+    const dias = armarHistorial([a1, a2, m], HOY);
+
+    expect(dias.map((d) => d.titulo)).toEqual(["Hoy", "Ayer"]);
+    expect(dias[0].items).toHaveLength(1);
+    expect(dias[0].items[0].tipo).toBe("grupo");
+    expect(dias[1].items).toEqual([{ tipo: "evento", clave: "e3", evento: m }]);
+  });
+
+  it("al sumar una página que sigue el mismo día, reagrupa el día completo", () => {
+    const pagina1 = [autorizacion({ referencia: "decision:1", fecha_utc: local(25, 20) })];
+    const pagina2 = [autorizacion({ referencia: "decision:2", fecha_utc: local(25, 19) })];
+
+    const dias = armarHistorial([...pagina1, ...pagina2], HOY);
+
+    expect(dias).toHaveLength(1);
+    expect(dias[0].items).toHaveLength(1);
+    expect(dias[0].items[0].tipo).toBe("grupo");
+  });
+});
+
+describe("describirGrupo", () => {
+  it("cantidad en plural, la persona y el rango de horas (de la más temprana a la más tarde)", () => {
+    const eventos = [
+      autorizacion({ referencia: "decision:1", fecha_utc: local(25, 21, 50) }),
+      autorizacion({ referencia: "decision:2", fecha_utc: local(25, 18, 5) }),
+      autorizacion({ referencia: "decision:3", fecha_utc: local(25, 14, 49) }),
+    ];
+    expect(describirGrupo(eventos, EQUIPO)).toEqual({
+      titulo: "3 pedidos autorizados",
+      quien: "Rosina López",
+      rango: "14:49–21:50",
+    });
+  });
+
+  it("si son de varias personas dice cuántas (sin distinguir mayúsculas en el UPN)", () => {
+    const eventos = [
+      autorizacion({ referencia: "decision:1", origen: "RLOPEZ@pontyn.com.uy", fecha_utc: local(25, 12) }),
+      autorizacion({ referencia: "decision:2", origen: "rlopez@pontyn.com.uy", fecha_utc: local(25, 11) }),
+      autorizacion({ referencia: "decision:3", origen: "cflores@pontyn.com.uy", fecha_utc: local(25, 10) }),
+    ];
+    expect(describirGrupo(eventos, EQUIPO).quien).toBe("2 personas");
+  });
+
+  it("si todos son del mismo minuto, una sola hora", () => {
+    const eventos = [
+      autorizacion({ referencia: "decision:1", fecha_utc: local(25, 12, 30) }),
+      autorizacion({ referencia: "decision:2", fecha_utc: local(25, 12, 30) }),
+    ];
+    expect(describirGrupo(eventos, EQUIPO).rango).toBe("12:30");
+  });
+});
+
+describe("tituloGrupo", () => {
+  it("singular y plural de cada resultado automático conocido", () => {
+    expect(tituloGrupo("Pedido autorizado", 1)).toBe("1 pedido autorizado");
+    expect(tituloGrupo("Pedido autorizado", 2)).toBe("2 pedidos autorizados");
+    expect(tituloGrupo("Pedido rechazado", 4)).toBe("4 pedidos rechazados");
+    expect(tituloGrupo("Recordatorio completado", 2)).toBe("2 recordatorios completados");
+    expect(tituloGrupo("Situación de la cuenta", 3)).toBe("3 cambios de situación de la cuenta");
+    expect(tituloGrupo("Situación de la cuenta", 1)).toBe("1 cambio de situación de la cuenta");
+  });
+
+  it("un resultado desconocido no se inventa el plural", () => {
+    expect(tituloGrupo("Otra cosa", 3)).toBe("Otra cosa (3)");
+  });
+});
+
+describe("resumen", () => {
+  it("haceCuanto: hoy, ayer, hace N días y fecha si es muy viejo", () => {
+    expect(haceCuanto(local(25, 9), HOY)).toBe("hoy");
+    expect(haceCuanto(local(24, 23), HOY)).toBe("ayer");
+    expect(haceCuanto(local(22, 12), HOY)).toBe("hace 3 días");
+    expect(haceCuanto(new Date(2026, 6, 27, 12).toISOString(), HOY)).toBe("hace 60 días");
+    expect(haceCuanto(new Date(2026, 6, 26, 12).toISOString(), HOY)).toBe("el 26/07/2026");
+    // Reloj del navegador atrasado respecto al servidor: nunca "hace -1 días".
+    expect(haceCuanto(local(26, 9), HOY)).toBe("hoy");
+  });
+
+  it("describirUltimaGestion arma el texto con motivo y persona", () => {
+    const g = evento({ resultado: "Pago coordinado", fecha_utc: local(22, 12) });
+    expect(describirUltimaGestion(g, EQUIPO, HOY)).toEqual({
+      cuando: "hace 3 días",
+      detalle: "Pago coordinado (Rosina López)",
+    });
+    expect(textoUltimaGestion(g, EQUIPO, HOY)).toBe("Última gestión: hace 3 días — Pago coordinado (Rosina López)");
+  });
+
+  it("sin gestión", () => {
+    expect(describirUltimaGestion(null, EQUIPO, HOY)).toBeNull();
+    expect(textoUltimaGestion(null, EQUIPO, HOY)).toBe("Todavía no hay gestiones registradas");
+  });
+
+  it("describirRecordatorios con singular, plural y vencidos", () => {
+    expect(describirRecordatorios(2, 1)).toEqual({ pendientes: "2 recordatorios pendientes", vencidas: "1 vencido" });
+    expect(describirRecordatorios(1, 0)).toEqual({ pendientes: "1 recordatorio pendiente", vencidas: null });
+    expect(describirRecordatorios(3, 2)).toEqual({ pendientes: "3 recordatorios pendientes", vencidas: "2 vencidos" });
+    expect(describirRecordatorios(0, 0)).toBeNull();
+  });
+});
+
+describe("filtros", () => {
+  it("son cuatro, en orden, empezando por Todo", () => {
+    expect(FILTROS.map((f) => f.etiqueta)).toEqual(["Todo", "Gestiones", "Autorizaciones", "Situación"]);
+    expect(FILTROS.map((f) => f.clave)).toEqual(["todo", "gestiones", "autorizaciones", "situacion"]);
+  });
+
+  it("esFiltro valida lo que venga de afuera", () => {
+    expect(esFiltro("gestiones")).toBe(true);
+    expect(esFiltro("otro")).toBe(false);
+    expect(esFiltro(null)).toBe(false);
+  });
+
+  it("cada filtro tiene su estado vacío", () => {
+    const textos = FILTROS.map((f) => vacioDeFiltro(f.clave));
+    expect(new Set(textos).size).toBe(4);
+    expect(vacioDeFiltro("gestiones")).toMatch(/^No hay gestiones registradas\./);
+  });
+});
+
+describe("filtro guardado", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it("recuerda el filtro por persona", () => {
+    guardarFiltro("rlopez@pontyn.com.uy", "autorizaciones");
+    expect(leerFiltroGuardado("rlopez@pontyn.com.uy")).toBe("autorizaciones");
+    expect(leerFiltroGuardado("cflores@pontyn.com.uy")).toBe("todo");
+  });
+
+  it("sin nada guardado o con un valor inválido queda en Todo", () => {
+    expect(leerFiltroGuardado("rlopez@pontyn.com.uy")).toBe("todo");
+    localStorage.setItem(claveFiltroGuardado("rlopez@pontyn.com.uy"), "cualquiera");
+    expect(leerFiltroGuardado("rlopez@pontyn.com.uy")).toBe("todo");
+  });
+
+  it("si localStorage falla, queda en Todo y guardar no explota", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(leerFiltroGuardado("rlopez@pontyn.com.uy")).toBe("todo");
+    expect(() => guardarFiltro("rlopez@pontyn.com.uy", "gestiones")).not.toThrow();
   });
 });
