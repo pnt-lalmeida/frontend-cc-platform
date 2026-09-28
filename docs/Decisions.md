@@ -302,3 +302,8 @@ Las dos van con su flag, en piloto.
 **Verificación:** las dos correcciones se probaron contra SAP y HANA producción, solo lectura, con un cliente real. El saldo de Estado de cuenta ahora coincide centavo a centavo con la GUI nativa de SAP, en pesos y en dólares. Detalle completo en `Architecture.md` punto 55.
 
 **Pendiente:** confirmar con Germán qué representa `BankCode = '99'` en los cheques. Encontrado en la misma investigación, sin resolver todavía: la Bitácora consulta las decisiones de la Bandeja una vez por cuenta relacionada (en vez de una sola consulta), y a `bandeja_decisiones` le falta un índice por `card_code` — ninguno de los dos afecta hoy por el volumen chico, pero conviene arreglarlos antes de que crezca.
+
+### 28/09/2026 — Latencia de la Bitácora: índice agregado, consulta N+1 ya estaba resuelta
+**Consulta de Líber** sobre por qué la Bitácora tarda ~9 s en local y si hacía falta un índice.
+**Hallazgo:** no es índices ni cold start — la demora local es por `az_cli_token` (subproceso del CLI de Azure en cada conexión, no ocurre en producción). Al revisar el código encontré que la consulta de decisiones de la Bandeja por cuenta relacionada, que pensé que iteraba una vez por cuenta, ya estaba corregida (una sola consulta con `IN`) desde la Fase de paginación de la Bitácora — mi primera nota sobre esto estaba basada en código anterior a esa fase.
+**Decisión de Líber:** agregar igual el índice faltante en `bandeja_decisiones (card_code, timestamp_utc DESC)`, aplicado con su OK. Detalle en `Architecture.md` punto 55.
