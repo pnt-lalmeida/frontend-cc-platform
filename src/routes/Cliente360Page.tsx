@@ -11,6 +11,7 @@ import type {
   SuspendidoResponse,
 } from "../api/types";
 import { useAccessToken } from "../auth/useAccessToken";
+import { BadgePiloto } from "../components/BadgePiloto";
 import { StatusTag } from "../components/StatusTag";
 import { Table, type TableColumn } from "../components/Table";
 import { useFeatures } from "../features/FeaturesContext";
@@ -411,6 +412,8 @@ export function Cliente360Page() {
                 {habilitada("situacion_cuenta") && <ControlSituacionCuenta cardCode={ficha.card_code} />}
                 <ControlSuspendido
                   ficha={ficha}
+                  puedeCambiar={habilitada("cambiar_suspendido")}
+                  enPiloto={enPiloto("cambiar_suspendido")}
                   enviando={enviandoSuspendido}
                   onCambiar={async (nuevoValor) => {
                     const resultado = await actualizarSuspendido(nuevoValor);
@@ -744,16 +747,30 @@ function Estadistica({
   );
 }
 
+// 28/09/2026 (Liber): el estado se ve siempre como "Suspendido: No/Sí" -
+// "Activo" era engañoso (SAP tiene su propio concepto de cliente activo).
+// Cambiarlo requiere la funcionalidad "cambiar_suspendido" (piloto por defecto).
 function ControlSuspendido({
   ficha,
+  puedeCambiar,
+  enPiloto,
   enviando,
   onCambiar,
 }: {
   ficha: FichaCliente;
+  puedeCambiar: boolean;
+  enPiloto: boolean;
   enviando: boolean;
   onCambiar: (nuevoValor: boolean) => Promise<void>;
 }) {
   const [confirmando, setConfirmando] = useState(false);
+  const etiqueta = (
+    <StatusTag variant={ficha.suspendido ? "risk" : "neutral"}>
+      {ficha.suspendido ? "Suspendido: Sí" : "Suspendido: No"}
+    </StatusTag>
+  );
+
+  if (!puedeCambiar) return etiqueta;
 
   if (confirmando) {
     const accion = ficha.suspendido ? "reactivar" : "suspender";
@@ -797,14 +814,15 @@ function ControlSuspendido({
   }
 
   return (
-    <button
-      onClick={() => setConfirmando(true)}
-      style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
-      title={ficha.suspendido ? "Click para reactivar" : "Click para suspender"}
-    >
-      <StatusTag variant={ficha.suspendido ? "risk" : "neutral"}>
-        {ficha.suspendido ? "Suspendido" : "Activo"}
-      </StatusTag>
-    </button>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <button
+        onClick={() => setConfirmando(true)}
+        style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
+        title={ficha.suspendido ? "Click para reactivar" : "Click para suspender"}
+      >
+        {etiqueta}
+      </button>
+      {enPiloto && <BadgePiloto />}
+    </span>
   );
 }

@@ -272,3 +272,7 @@ Las dos van con su flag, en piloto.
 - una línea de resumen con la última gestión y los recordatorios pendientes.
 
 **Hallazgo:** además de la legibilidad, el GET devolvía todo el historial sin límite. Ahora está paginado. Detalle en `Architecture.md` punto 53.
+
+### 28/09/2026 — Suspendido: "Suspendido: No/Sí" y cambio de estado en piloto
+**Decisión de Líber:** mostrar "Suspendido: No" o "Suspendido: Sí" en lugar de "Activo" / "Suspendido", porque "Activo" es otra cosa. Además, por ahora el cambio de estado queda deshabilitado detrás de una variable, igual que las funcionalidades nuevas, y en piloto.
+**Implementado** como la funcionalidad `cambiar_suspendido`, con default `piloto`: solo las supervisoras pueden cambiarlo y el resto del equipo ve la etiqueta. Detalle en `Architecture.md` punto 54.

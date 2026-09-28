@@ -10,7 +10,9 @@ export type FeatureNombre =
   | "mi_dia"
   | "riesgo_bloqueo"
   | "situacion_cuenta"
-  | "antiguedad_saldos";
+  | "antiguedad_saldos"
+  // 28/09/2026: cambiar Suspendido desde Cliente 360 (el estado se ve siempre).
+  | "cambiar_suspendido";
 
 export type EtapaFeature = "off" | "piloto" | "todos";
 

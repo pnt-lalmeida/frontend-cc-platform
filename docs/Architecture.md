@@ -570,6 +570,15 @@ Ninguno de estos puntos, salvo los cinco primeros, bloquea seguir construyendo C
     - **Dato faltante, no es bug:** Líber no está en `usuarios_sap`, que tiene 7 usuarios activos. Por eso ve su UPN en lugar de su nombre y no aparece como responsable posible.
     - Tests: 554 en backend y 353 en frontend.
 
+54. **`IMPLEMENTADO 28/09/2026 (piloto)` — Suspendido: etiqueta clara y cambio detrás de una funcionalidad** (pedido de Líber).
+    - **Etiqueta:** el encabezado de Cliente 360 muestra siempre **"Suspendido: No"** o **"Suspendido: Sí"** (esta última en color de riesgo). Antes decía "Activo" / "Suspendido". "Activo" era engañoso, porque SAP tiene su propio concepto de cliente activo (`Valid`/`Frozen`), que no es este flag de Cuentas Corrientes.
+    - **Cambiar el estado** requiere la nueva funcionalidad **`cambiar_suspendido`** (`FEATURE_CAMBIAR_SUSPENDIDO`), con default `piloto`:
+      - **supervisoras:** ven la etiqueta como botón, con la confirmación de siempre y el badge "Piloto";
+      - **el resto del equipo:** ve solo la etiqueta;
+      - **en el backend:** `PATCH /api/clientes/{card_code}/suspendido` da 404 sin la funcionalidad, antes de tocar SAP.
+    - **Cambio de comportamiento en producción:** hasta ahora cualquier `CC.Usuario` podía cambiarlo. Con el deploy, sin App Setting, solo las supervisoras. Para devolverle el cambio a todo el equipo: `FEATURE_CAMBIAR_SUSPENDIDO=todos`. Para que nadie pueda cambiarlo: `off`.
+    - Tests: 559 backend, 355 frontend.
+
 ## 10. Gotchas ya pagados
 
 Convención recomendada por la guía de arquitectura Azure serverless: cada bug real se documenta acá con la causa raíz, no solo el síntoma — para que no se reintente en otra parte del sistema.

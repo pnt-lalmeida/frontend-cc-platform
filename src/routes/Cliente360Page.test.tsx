@@ -153,3 +153,28 @@ describe("Cliente360Page — Situación de la cuenta y Antigüedad de saldos", (
     );
   });
 });
+
+// 28/09/2026: el estado Suspendido se ve siempre ("Suspendido: No/Sí", nunca
+// "Activo"); cambiarlo requiere la funcionalidad "cambiar_suspendido".
+describe("Cliente360Page — Suspendido", () => {
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    apiFetch.mockReset();
+  });
+
+  it("sin la funcionalidad muestra 'Suspendido: No' como etiqueta, sin poder cambiarlo", () => {
+    render(<Cliente360Page />);
+
+    expect(screen.getByText("Suspendido: No")).toBeTruthy();
+    expect(screen.queryByText("Activo")).toBeNull();
+    expect(screen.queryByRole("button", { name: /suspendido/i })).toBeNull();
+  });
+
+  it("con la funcionalidad la etiqueta es un botón que pide confirmación antes de suspender", () => {
+    featuresHabilitadas.add("cambiar_suspendido");
+    render(<Cliente360Page />);
+
+    fireEvent.click(screen.getByRole("button", { name: /suspendido: no/i }));
+    expect(screen.getByText(/¿Seguro que querés suspender a este cliente\?/)).toBeTruthy();
+  });
+});
