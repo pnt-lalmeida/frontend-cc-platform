@@ -9,6 +9,8 @@ import type {
 } from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
 import { formatDate, formatDateTime } from "../../design/format";
+import { useFeatures } from "../../features/FeaturesContext";
+import { hoyUruguay } from "../../utils/fechas";
 import {
   FILTROS,
   MAX_DESCRIPCION,
@@ -25,7 +27,6 @@ import {
   describirVencimiento,
   esAutomatico,
   etiquetaEvento,
-  fechaLocalISO,
   guardarFiltro,
   hayErrores,
   horaLocal,
@@ -40,9 +41,13 @@ import {
   type FormGestion,
   type FormRecordatorio,
 } from "./bitacora";
+import { PromesasVigentes } from "./PromesasVigentes";
+import { MAX_FACTURAS, armarPromesaRequest, validarPromesa, type FormPromesa } from "./promesas";
 import { useAccionesBitacora } from "./useAccionesBitacora";
 import { useApiBitacora } from "./useApiBitacora";
+import { useApiPromesas } from "./useApiPromesas";
 import { useBitacora } from "./useBitacora";
+import { usePromesas, type EstadoPromesas } from "./usePromesas";
 
 // Fase 3 CRM (25/09/2026): pestaña "Actividad" de Cliente 360. Se monta solo
 // si la funcionalidad "bitacora" esta habilitada: sin habilitar no hay fetch.
@@ -62,15 +67,41 @@ const CAMPO: CSSProperties = {
   color: "var(--color-ink)",
 };
 
-export function BitacoraActividad({
-  cardCode,
-  enPiloto,
-  usuarioActual,
-}: {
+interface PropsActividad {
   cardCode: string;
   enPiloto: boolean;
   usuarioActual: string | null;
-}) {
+}
+
+// Promesas de pago (Fase 4): el estado se comparte entre el bloque de vigentes
+// (arriba) y la pestaña "Promesa" del panel Registrar, asi que vive aca y baja
+// por props.
+interface PromesasDeActividad {
+  estado: EstadoPromesas;
+  enPiloto: boolean;
+}
+
+// El gating vive en quien monta: sin la funcionalidad "promesas" ni se monta
+// ConPromesas ni se hace ningun fetch. Los hooks de promesas no pueden ser
+// condicionales, por eso el estado se arma en un componente aparte.
+export function BitacoraActividad(props: PropsActividad) {
+  const { habilitada, enPiloto } = useFeatures();
+  if (habilitada("promesas")) return <ConPromesas {...props} promesasEnPiloto={enPiloto("promesas")} />;
+  return <ActividadCliente {...props} promesas={null} />;
+}
+
+function ConPromesas({ promesasEnPiloto, ...props }: PropsActividad & { promesasEnPiloto: boolean }) {
+  const api = useApiPromesas();
+  const estado = usePromesas(api, props.cardCode);
+  return <ActividadCliente {...props} promesas={{ estado, enPiloto: promesasEnPiloto }} />;
+}
+
+function ActividadCliente({
+  cardCode,
+  enPiloto,
+  usuarioActual,
+  promesas,
+}: PropsActividad & { promesas: PromesasDeActividad | null }) {
   const { fuentes, api } = useApiBitacora();
   // Ultimo filtro elegido por esta persona; si localStorage falla, "Todo".
   const [filtro, setFiltro] = useState<FiltroBitacora>(() => leerFiltroGuardado(usuarioActual));
@@ -89,7 +120,8 @@ export function BitacoraActividad({
   const bitacora = useBitacora(fuentes, cardCode, filtro);
   const { datos, loading, error, recargar } = bitacora;
   const acciones = useAccionesBitacora(api, cardCode, recargar);
-  const hoy = fechaLocalISO(new Date());
+  // Un solo "hoy" para todo el panel: el de Montevideo (ver utils/fechas).
+  const hoy = hoyUruguay();
   const [resaltada, resaltar] = useResaltado();
 
   function elegirFiltro(nuevo: FiltroBitacora) {
@@ -178,6 +210,9 @@ export function BitacoraActividad({
               hoy={hoy}
               usuarioActual={usuarioActual}
               acciones={acciones}
+              promesas={promesas?.estado ?? null}
+              // Puede que el backend haya escrito un evento al registrar la promesa.
+              alRegistrarPromesa={() => void recargar()}
             />
           </section>
 
@@ -199,6 +234,14 @@ export function BitacoraActividad({
 
   return (
     <div>
+      {promesas && (
+        <PromesasVigentes
+          estado={promesas.estado}
+          equipo={datos?.equipo ?? []}
+          hoy={hoyUruguay()}
+          enPiloto={promesas.enPiloto}
+        />
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 500, margin: 0 }}>Bitácora de gestión</h3>
         {enPiloto && <BadgePiloto />}
@@ -742,42 +785,51 @@ function ItemGrupo({
 
 /* ------------------------------------------------------------- registrar */
 
-type Modo = "gestion" | "recordatorio";
+type Modo = "gestion" | "recordatorio" | "promesa";
 
 function PanelRegistrar({
   datos,
   hoy,
   usuarioActual,
   acciones,
+  promesas,
+  alRegistrarPromesa,
 }: {
   datos: BitacoraResponse;
   hoy: string;
   usuarioActual: string | null;
   acciones: ReturnType<typeof useAccionesBitacora>;
+  // null = funcionalidad "promesas" no habilitada: no hay pestaña ni formulario.
+  promesas: EstadoPromesas | null;
+  alRegistrarPromesa: () => void;
 }) {
   const [modo, setModo] = useState<Modo>("gestion");
+  const opciones: { key: Modo; label: string }[] = [
+    { key: "gestion", label: "Gestión" },
+    { key: "recordatorio", label: "Recordatorio" },
+    ...(promesas ? [{ key: "promesa" as const, label: "Promesa" }] : []),
+  ];
 
   return (
     <div
       className="bitacora-registrar"
+      data-promesas={promesas ? "true" : undefined}
       style={{ border: "1px solid var(--color-line)", borderRadius: 10, background: "var(--color-surface)", padding: "14px 16px 16px" }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
         <p id="bitacora-registrar" style={ETIQUETA}>
           Registrar
         </p>
-        <div role="group" aria-label="Qué registrar" style={{ display: "flex" }}>
-          {(
-            [
-              { key: "gestion", label: "Gestión" },
-              { key: "recordatorio", label: "Recordatorio" },
-            ] as const
-          ).map((opcion, i) => {
+        <div role="group" aria-label="Qué registrar" style={{ display: "flex", flexWrap: "wrap" }}>
+          {opciones.map((opcion, i) => {
             const activa = opcion.key === modo;
+            const primera = i === 0;
+            const ultima = i === opciones.length - 1;
             return (
               <button
                 key={opcion.key}
                 type="button"
+                className="bitacora-modo"
                 aria-pressed={activa}
                 onClick={() => setModo(opcion.key)}
                 style={{
@@ -785,8 +837,8 @@ function PanelRegistrar({
                   fontSize: 12.5,
                   fontWeight: activa ? 600 : 500,
                   border: `1px solid ${activa ? "var(--color-accent)" : "var(--color-line)"}`,
-                  marginLeft: i === 0 ? 0 : -1,
-                  borderRadius: i === 0 ? "6px 0 0 6px" : "0 6px 6px 0",
+                  marginLeft: primera ? 0 : -1,
+                  borderRadius: primera ? "6px 0 0 6px" : ultima ? "0 6px 6px 0" : 0,
                   background: activa ? "var(--color-accent)" : "var(--color-surface)",
                   color: activa ? "#fff" : "var(--color-muted)",
                   cursor: "pointer",
@@ -801,13 +853,18 @@ function PanelRegistrar({
         </div>
       </div>
 
-      {/* Los dos quedan montados: cambiar de modo no pierde lo que se estaba escribiendo. */}
+      {/* Todos quedan montados: cambiar de modo no pierde lo que se estaba escribiendo. */}
       <div hidden={modo !== "gestion"}>
         <FormularioGestion motivos={datos.motivos} canales={datos.canales} estado={acciones.gestion} />
       </div>
       <div hidden={modo !== "recordatorio"}>
         <FormularioRecordatorio equipo={datos.equipo} hoy={hoy} usuarioActual={usuarioActual} estado={acciones.recordatorio} />
       </div>
+      {promesas && (
+        <div hidden={modo !== "promesa"}>
+          <FormularioPromesa canales={datos.canales} estado={promesas} alRegistrar={alRegistrarPromesa} />
+        </div>
+      )}
     </div>
   );
 }
@@ -844,6 +901,7 @@ function BotonEnviar({ enviando, texto, textoEnviando }: { enviando: boolean; te
   return (
     <button
       type="submit"
+      className="bitacora-boton-enviar"
       disabled={enviando}
       style={{
         display: "inline-flex",
@@ -882,6 +940,60 @@ function PieFormulario({ children, confirmacion, error }: { children: ReactNode;
         </p>
       )}
     </>
+  );
+}
+
+// Canal opcional en chips, compartido por Gestion y Promesa (la lista es la
+// misma: viene de la respuesta de la Bitacora).
+function SelectorCanal({
+  id,
+  canales,
+  valor,
+  error,
+  onCambio,
+}: {
+  id: string;
+  canales: string[];
+  valor: string;
+  error?: string;
+  onCambio: (canal: string) => void;
+}) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div id={id} style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6 }}>
+        Canal <span style={{ fontWeight: 400, color: "var(--color-muted)" }}>(opcional)</span>
+      </div>
+      <div role="radiogroup" aria-labelledby={id} className="bitacora-chips" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {canales.map((c) => {
+          const activo = valor === c;
+          return (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={activo}
+              className="bitacora-chip"
+              // Un segundo click lo deselecciona: el canal es opcional.
+              onClick={() => onCambio(activo ? "" : c)}
+              style={{
+                padding: "4px 11px",
+                borderRadius: 20,
+                fontSize: 12.5,
+                fontFamily: "inherit",
+                border: `1px solid ${activo ? "var(--color-accent)" : "var(--color-line)"}`,
+                background: activo ? "var(--color-accent-soft)" : "var(--color-surface)",
+                color: activo ? "var(--color-accent-ink)" : "var(--color-muted)",
+                fontWeight: activo ? 600 : 500,
+                cursor: "pointer",
+              }}
+            >
+              {c}
+            </button>
+          );
+        })}
+      </div>
+      {error && <p style={ERROR}>{error}</p>}
+    </div>
   );
 }
 
@@ -937,40 +1049,7 @@ function FormularioGestion({
         </select>
       </Campo>
 
-      <div style={{ marginBottom: 12 }}>
-        <div id="gestion-canal" style={{ fontSize: 12.5, fontWeight: 500, marginBottom: 6 }}>
-          Canal <span style={{ fontWeight: 400, color: "var(--color-muted)" }}>(opcional)</span>
-        </div>
-        <div role="radiogroup" aria-labelledby="gestion-canal" style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {canales.map((c) => {
-            const activo = form.canal === c;
-            return (
-              <button
-                key={c}
-                type="button"
-                role="radio"
-                aria-checked={activo}
-                // Un segundo click lo deselecciona: el canal es opcional.
-                onClick={() => setForm({ ...form, canal: activo ? "" : c })}
-                style={{
-                  padding: "4px 11px",
-                  borderRadius: 20,
-                  fontSize: 12.5,
-                  fontFamily: "inherit",
-                  border: `1px solid ${activo ? "var(--color-accent)" : "var(--color-line)"}`,
-                  background: activo ? "var(--color-accent-soft)" : "var(--color-surface)",
-                  color: activo ? "var(--color-accent-ink)" : "var(--color-muted)",
-                  fontWeight: activo ? 600 : 500,
-                  cursor: "pointer",
-                }}
-              >
-                {c}
-              </button>
-            );
-          })}
-        </div>
-        {errores.canal && <p style={ERROR}>{errores.canal}</p>}
-      </div>
+      <SelectorCanal id="gestion-canal" canales={canales} valor={form.canal} error={errores.canal} onCambio={(canal) => setForm({ ...form, canal })} />
 
       <Campo id="gestion-nota" etiqueta="Nota" opcional error={errores.nota}>
         <textarea
@@ -1087,6 +1166,142 @@ function FormularioRecordatorio({
 
       <PieFormulario confirmacion={confirmacion} error={estado.error}>
         <BotonEnviar enviando={estado.enviando} texto="Crear recordatorio" textoEnviando="Creando…" />
+      </PieFormulario>
+    </form>
+  );
+}
+
+const PROMESA_VACIA: FormPromesa = { fecha_prometida: "", importe: "", moneda: "", canal: "", facturas: "" };
+
+function FormularioPromesa({
+  canales,
+  estado,
+  alRegistrar,
+}: {
+  canales: string[];
+  estado: EstadoPromesas;
+  alRegistrar: () => void;
+}) {
+  const [form, setForm] = useState<FormPromesa>(PROMESA_VACIA);
+  const [errores, setErrores] = useState<Errores<FormPromesa>>({});
+  const [confirmacion, confirmar] = useConfirmacion();
+  // "Hoy" en Montevideo, igual que el bloque de vigentes: la fecha minima y el
+  // "vence hoy" nunca discrepan.
+  const hoy = hoyUruguay();
+  // Las monedas vienen del GET de promesas (no se duplica la lista). Sin
+  // elegir, se propone la primera (UYU): es la que se usa casi siempre.
+  const monedas = estado.datos?.monedas ?? [];
+  const moneda = form.moneda || monedas[0] || "";
+  const sinMonedas = monedas.length === 0;
+  const errorMonedas = sinMonedas && estado.error && !estado.datos ? "No se pudieron cargar las monedas." : null;
+
+  function cambiar(cambio: Partial<FormPromesa>) {
+    setForm({ ...form, ...cambio });
+    setErrores({ ...errores, ...Object.fromEntries(Object.keys(cambio).map((k) => [k, undefined])) });
+  }
+
+  async function enviar(ev: FormEvent) {
+    ev.preventDefault();
+    const completo = { ...form, moneda };
+    const nuevos = validarPromesa(completo, hoy, monedas, canales);
+    setErrores(nuevos);
+    if (hayErrores(nuevos)) return;
+    const ok = await estado.registrar(armarPromesaRequest(completo));
+    if (ok) {
+      // Conserva la moneda: suele cargarse mas de una seguida en la misma.
+      setForm({ ...PROMESA_VACIA, moneda: form.moneda });
+      confirmar("Promesa registrada.");
+      alRegistrar();
+    }
+  }
+
+  const largoFacturas = form.facturas.trim().length;
+
+  return (
+    <form onSubmit={enviar} noValidate>
+      <div className="bitacora-form-fila" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: 10 }}>
+        <Campo id="promesa-importe" etiqueta="Importe" error={errores.importe}>
+          <input
+            id="promesa-importe"
+            className="bitacora-campo"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={form.importe}
+            placeholder="Ej: 45.000"
+            aria-invalid={Boolean(errores.importe)}
+            aria-describedby={errores.importe ? "promesa-importe-error" : undefined}
+            onChange={(e) => cambiar({ importe: e.target.value })}
+            style={{ ...CAMPO, fontFamily: "var(--font-mono)", borderColor: errores.importe ? "var(--color-risk)" : undefined }}
+          />
+        </Campo>
+        <Campo id="promesa-moneda" etiqueta="Moneda" error={errores.moneda}>
+          <select
+            id="promesa-moneda"
+            className="bitacora-campo"
+            value={moneda}
+            disabled={sinMonedas}
+            aria-invalid={Boolean(errores.moneda)}
+            aria-describedby={errores.moneda ? "promesa-moneda-error" : undefined}
+            onChange={(e) => cambiar({ moneda: e.target.value })}
+            style={{ ...CAMPO, borderColor: errores.moneda ? "var(--color-risk)" : undefined }}
+          >
+            {sinMonedas && <option value="">{estado.error ? "—" : "Cargando…"}</option>}
+            {monedas.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      </div>
+      {errorMonedas && (
+        <p role="alert" style={{ ...ERROR, margin: "-6px 0 12px" }}>
+          {errorMonedas}{" "}
+          <button type="button" className="promesas-boton-texto" onClick={() => void estado.recargar()}>
+            Reintentar
+          </button>
+        </p>
+      )}
+
+      <Campo id="promesa-fecha" etiqueta="Fecha prometida" error={errores.fecha_prometida}>
+        <input
+          id="promesa-fecha"
+          className="bitacora-campo"
+          type="date"
+          value={form.fecha_prometida}
+          min={hoy}
+          aria-invalid={Boolean(errores.fecha_prometida)}
+          aria-describedby={errores.fecha_prometida ? "promesa-fecha-error" : undefined}
+          onChange={(e) => cambiar({ fecha_prometida: e.target.value })}
+          style={{ ...CAMPO, borderColor: errores.fecha_prometida ? "var(--color-risk)" : undefined }}
+        />
+      </Campo>
+
+      <SelectorCanal id="promesa-canal" canales={canales} valor={form.canal} error={errores.canal} onCambio={(canal) => cambiar({ canal })} />
+
+      <Campo id="promesa-facturas" etiqueta="Facturas" opcional error={errores.facturas}>
+        <input
+          id="promesa-facturas"
+          className="bitacora-campo"
+          type="text"
+          autoComplete="off"
+          value={form.facturas}
+          placeholder="Ej: A-1234, A-1240"
+          aria-invalid={Boolean(errores.facturas)}
+          aria-describedby={errores.facturas ? "promesa-facturas-error" : undefined}
+          onChange={(e) => cambiar({ facturas: e.target.value })}
+          style={{ ...CAMPO, borderColor: errores.facturas ? "var(--color-risk)" : undefined }}
+        />
+        {largoFacturas > MAX_FACTURAS - 100 && (
+          <div style={{ ...AYUDA, textAlign: "right", color: largoFacturas > MAX_FACTURAS ? "var(--color-risk)" : AYUDA.color }}>
+            {largoFacturas}/{MAX_FACTURAS}
+          </div>
+        )}
+      </Campo>
+
+      <PieFormulario confirmacion={confirmacion} error={estado.errorRegistrar}>
+        <BotonEnviar enviando={estado.enviando} texto="Registrar promesa" textoEnviando="Registrando…" />
       </PieFormulario>
     </form>
   );

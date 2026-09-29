@@ -441,4 +441,60 @@ body {
   .bitacora-resumen-sep {
     display: none;
   }
+
+  /* Promesas de pago: area de toque de 44px y separacion entre controles,
+     solo con la funcionalidad habilitada (ver data-promesas arriba). El
+     selector Gestion / Recordatorio / Promesa deja de ser una barra pegada. */
+  .bitacora-registrar[data-promesas="true"] .bitacora-modo,
+  .bitacora-registrar[data-promesas="true"] .bitacora-chip,
+  .bitacora-registrar[data-promesas="true"] .bitacora-boton-enviar,
+  .promesas-boton-texto {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .bitacora-registrar[data-promesas="true"] .bitacora-modo,
+  .bitacora-registrar[data-promesas="true"] .bitacora-chip {
+    min-width: 44px;
+  }
+  .bitacora-registrar[data-promesas="true"] .bitacora-modo {
+    margin-left: 6px !important;
+    border-radius: 6px !important;
+  }
+  .bitacora-registrar[data-promesas="true"] .bitacora-modo:first-child {
+    margin-left: 0 !important;
+  }
+  .bitacora-registrar[data-promesas="true"] .bitacora-chips {
+    gap: 8px !important;
+  }
+  .bitacora-campo {
+    min-height: 44px;
+  }
+  .promesas-boton-texto {
+    padding: 0 8px;
+  }
+}
+
+/* Promesas de pago (Fase 4 CRM): controles del panel Registrar y del bloque de
+   vigentes. El foco visible es una mejora de accesibilidad sin costo visual y
+   vale siempre. Los cambios de tamaño en celular (mas abajo, en el bloque de
+   720px) viajan con la funcionalidad: solo aplican con data-promesas="true" en
+   .bitacora-registrar, asi con el flag apagado la pantalla no cambia. */
+.bitacora-modo:focus-visible,
+.bitacora-chip:focus-visible,
+.bitacora-campo:focus-visible,
+.bitacora-boton-enviar:focus-visible,
+.promesas-boton-texto:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.promesas-boton-texto {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
