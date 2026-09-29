@@ -32,7 +32,7 @@ El descubrimiento vivía antes en `Pontyn_Descubrimiento_Cuentas_Corrientes_Resu
 ## Notas operativas
 
 - **Agentes formalizados** (28/09/2026) en `.claude/agents/`: `investigador` y `validador` (idénticos al repo backend `cc-platform-api`), `frontend` y `optimizador` (propios de este repo). Cada archivo trae solo las reglas duras y los patrones estables — la tarea puntual sigue viajando en un brief/contrato que se escribe fresco cada vez. `optimizador` es el único que combina lectura solo-lectura contra sistemas reales con permiso de escribir código, y se invoca a demanda, no en cada fase. Flujo completo y detalle de modelos (Opus/Sonnet) en el `CLAUDE.md` del repo backend y en `Decisions.md` 28/09/2026.
-- **Solo el orquestador edita `.claude/agents/*.md`.**
+- **Solo el orquestador edita `.claude/agents/*.md` y los documentos vivos** (este `CLAUDE.md`, `docs/Architecture.md`, `docs/Decisions.md`, `docs/Discovery.md`, `docs/Plan.md`). Ningún agente los escribe — todos los leen al arrancar. Un subagente reporta en su mensaje final (o, angosto, en `docs/proposals/`); el orquestador decide qué queda documentado y lo escribe él mismo, en los dos repos.
 - **Propuestas de agentes** (`docs/proposals/`, ver `docs/proposals/README.md`): un agente puede dejar como mucho un archivo corto ahí cuando encuentra algo reusable y ajeno a su tarea puntual. El orquestador las revisa y las borra al consolidarlas; el histórico de qué se decidió queda en `Decisions.md`.
 - **Ritual de revisión:** antes de arrancar un módulo grande nuevo, releer los 6 archivos de `.claude/agents/` (los dos repos) y revisar `docs/proposals/` pendiente.
 

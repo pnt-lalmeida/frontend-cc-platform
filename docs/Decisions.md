@@ -378,3 +378,6 @@ Las dos van con su flag, en piloto.
 - `FEATURE_INDICADORES_PAGO`: falta que alguien del equipo compare 2-3 clientes conocidos contra lo que ya saben de ellos (criterio de negocio, nunca chequeado).
 - `FEATURE_ALERTAS`: técnicamente sana (0 duplicados) pero con apenas horas de uso real en producción — el criterio fijado fue 2 semanas.
 - `FEATURE_CAMBIAR_SUSPENDIDO`: es una decisión de política (¿vuelve a estar disponible para todo el equipo o queda limitado a supervisoras?), no una cuestión de si está lista.
+
+### 29/09/2026 — Quién mantiene los documentos vivos: aclarado explícito
+**Pregunta de Líber:** quién se encarga de mantener actualizados los `.md`. Ya era así en la práctica (ningún agente escribe `Architecture.md`/`Decisions.md`/`CLAUDE.md`, solo el orquestador) pero la regla escrita solo cubría `.claude/agents/*.md`. Se extendió esa misma línea de `CLAUDE.md` para cubrir también los documentos vivos, en los dos repos.
