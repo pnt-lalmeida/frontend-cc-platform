@@ -381,3 +381,29 @@ Las dos van con su flag, en piloto.
 
 ### 29/09/2026 — Quién mantiene los documentos vivos: aclarado explícito
 **Pregunta de Líber:** quién se encarga de mantener actualizados los `.md`. Ya era así en la práctica (ningún agente escribe `Architecture.md`/`Decisions.md`/`CLAUDE.md`, solo el orquestador) pero la regla escrita solo cubría `.claude/agents/*.md`. Se extendió esa misma línea de `CLAUDE.md` para cubrir también los documentos vivos, en los dos repos.
+
+### 29/09/2026 — Situación de la cuenta: migración inicial desde la planilla de antigüedad de saldos
+**Pedido de Líber:** cargar la columna "Estado" de la planilla semanal de antigüedad de saldos (`referencia/`, fuera de los repos) como valor inicial de `crm_situacion_cuenta`, matcheando por `numero_sn` consolidado contra el código de cliente de la planilla (que trae el prefijo `C1-`/`C2-`/`C3-`). Solo filas con un valor legible: vacío y `---` se ignoran.
+
+**Cómo se hizo:** no con SQL suelto, sino llamando a `shared.situacion_cuenta.actualizar()` —la misma función que usa la pantalla— para que cada cambio pase por la validación contra la lista fija, quede atómico y genere su evento en la Bitácora, exactamente como si lo hubiera hecho una persona. Identidad usada en `actualizada_por`: `migracion-planilla@pontyn.com.uy`. La resolución de `numero_sn` se hizo contra HANA producción con el patrón consolidado de siempre (`COALESCE(padre.U_NumeroSN, propio.U_NumeroSN)`, con fallback al `card_code`). Se corrió primero una prueba de 5 registros, verificada leyendo la base de vuelta, antes del lote completo.
+
+**Conflictos y criterio de desempate:** 13 clientes tenían valores de "Estado" distintos entre sus cuentas C1/C2 (la planilla clasifica por cuenta, la plataforma por cliente consolidado). Se le mostraron los 13 a Líber y él confirmó el criterio: **"gana la que no sea *Saldo pendiente descontar*"**, que resolvió 9 de los 13. Los 4 restantes (ninguno de los dos lados es "Saldo pendiente descontar") quedaron **sin tocar**, esperando decisión manual: `11603` (Abogados vs Clearing), `14471`, `16876` y `17068` (Acuerdo CC vs Gestión CC).
+
+**Resultado:** 507 clientes escritos (502 valores nuevos + 5 que ya tenían ese valor de la prueba), 0 errores, 507 eventos en la Bitácora. Verificado leyendo la base después: `crm_situacion_cuenta` quedó con 507 filas, todas de esta migración. Distribución: Saldo pendiente descontar 362, Gestión Vendedor 37, Clearing 29, Gestión CC 21, Incobrable 21, RR.HH 13, Abogados 6, Acuerdo CC 4, Canje 4, Gestión Directorio 4, Negocio exterior 1.
+
+**Privacidad (Ley 18.331):** la planilla nunca se copió a ningún repo, doc ni fixture. Los datos migraron a su destino operativo real (Azure SQL de la plataforma) y en la conversación solo se mostraron códigos y agregados, nunca nombres de clientes.
+
+### 29/09/2026 — Comportamiento de pago liberado a todo el equipo
+**Decisión de Líber**, confirmando que ya validaron un par de clientes contra lo que el equipo sabe de ellos (era el criterio pendiente de la entrada anterior de hoy). `FEATURE_INDICADORES_PAGO` pasó de `piloto` a `todos` en la Function App de producción.
+
+**Quedan en `piloto`:** `FEATURE_ALERTAS` (falta tiempo de uso real, criterio: 2 semanas) y `FEATURE_CAMBIAR_SUSPENDIDO` (decisión de política, no de madurez).
+
+### 29/09/2026 — Promesas de pago (Fase 4): criterios de verificación confirmados
+**Contexto:** al preguntar Líber qué faltaba para construir Promesas y Riesgo de bloqueo, se confirmó que las tablas (`crm_promesas`, `crm_riesgo_sombra`) y los flags ya existían desde el 25/09 — lo único que faltaba era lógica, más dos criterios de negocio sin definir.
+
+**Criterios decididos por Líber:**
+1. **Importe:** se compara la suma de lo efectivamente pagado dentro de la ventana `[fecha prometida, fecha prometida + 2 días hábiles de gracia]` contra el importe prometido. ≥ 97% → `cumplida`; entre 1% y 97% → `cumplida_parcial`; 0 → `incumplida`. El 97% (configurable) evita marcar "parcial" por redondeos o diferencias de cambio, problema ya visto en los indicadores de pago.
+2. **Fecha:** la tolerancia ya la da el período de gracia de 2 días hábiles, no hace falta otra regla. Una promesa marcada `incumplida` **no vuelve atrás** si el cliente paga después — eso se registra como una gestión nueva en la Bitácora. La promesa dice si se cumplió el compromiso, no reescribe la historia.
+3. **Días hábiles = lunes a viernes, sin calendario de feriados** (Etapa 1). No existe hoy ningún concepto de día hábil en el código; se construye con Promesas. Si en el piloto un feriado genera un caso injusto real, se suman feriados después.
+
+**Nota de diseño:** un vencimiento en fin de semana no perjudica al cliente — si promete el sábado y paga el lunes, el lunes es recién el primer día hábil, muy dentro de la gracia.
