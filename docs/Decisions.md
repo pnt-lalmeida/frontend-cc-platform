@@ -370,3 +370,11 @@ Las dos van con su flag, en piloto.
 - **`Plan.md`:** el roadmap original (Sección 7, Pasos 1-8) y el banner de estado estaban desactualizados desde el 16/09 — se agregó una nota en el lugar señalando que el orden real fue distinto (se saltó directo a Cliente 360/Bandeja y de ahí al CRM liviano), sin borrar el plan original.
 - **`Discovery.md`:** 3 preguntas de la Sección 12 que ya estaban resueltas (mecanismo de bloqueo por crédito, canales por cliente, definición de promesa de pago para la Etapa 1) marcadas como tal, con el puntero a `Architecture.md`. El resto de las ~50 preguntas de esa sección no se auditó una por una — queda para una pasada futura si hace falta.
 - **Corrección de paso:** `Decisions.md` (append-only, no se toca) y `CLAUDE.md` (se actualiza en cada hito grande) no necesitaban esta consolidación. Se corrigió además la regla de sincronización entre repos en `CLAUDE.md`: en la práctica `Discovery.md` y `Plan.md` ya se mantenían idénticos entre los dos repos, igual que `Architecture.md`/`Decisions.md`, pero la regla escrita solo mencionaba estos dos últimos.
+
+### 29/09/2026 — Antigüedad de saldos liberada a todo el equipo
+**Decisión de Líber**, tras la recomendación del orquestador de que era la primera candidata a liberar (fue la más puesta a prueba el 28/09 — tres bugs reales encontrados y corregidos, verificados contra SAP centavo a centavo). `FEATURE_ANTIGUEDAD_SALDOS` pasó de `piloto` a `todos` en la Function App de producción.
+
+**Quedan en `piloto`, con lo pendiente antes de liberarlas:**
+- `FEATURE_INDICADORES_PAGO`: falta que alguien del equipo compare 2-3 clientes conocidos contra lo que ya saben de ellos (criterio de negocio, nunca chequeado).
+- `FEATURE_ALERTAS`: técnicamente sana (0 duplicados) pero con apenas horas de uso real en producción — el criterio fijado fue 2 semanas.
+- `FEATURE_CAMBIAR_SUSPENDIDO`: es una decisión de política (¿vuelve a estar disponible para todo el equipo o queda limitado a supervisoras?), no una cuestión de si está lista.
