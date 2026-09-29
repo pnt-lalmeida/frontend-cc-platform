@@ -12,6 +12,7 @@ import { useAccessToken } from "../auth/useAccessToken";
 import { StatusTag } from "../components/StatusTag";
 import { useFeatures } from "../features/FeaturesContext";
 import { LineaIndicadoresPago } from "./bandeja/LineaIndicadoresPago";
+import { LineaPromesaPago } from "./bandeja/LineaPromesaPago";
 import { formatDate, formatMoney } from "../design/format";
 import { agruparPorCliente, type GrupoCliente } from "./bandeja/agrupar";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
@@ -580,6 +581,15 @@ export function BandejaPage() {
                       key={seleccionado.card_code}
                       cardCode={seleccionado.card_code}
                       enPiloto={enPiloto("indicadores_pago")}
+                    />
+                  )}
+
+                  {habilitada("promesas") && seleccionado.card_code && (
+                    <LineaPromesaPago
+                      key={seleccionado.card_code}
+                      cardCode={seleccionado.card_code}
+                      enPiloto={enPiloto("promesas")}
+                      pegadaAIndicadores={habilitada("indicadores_pago")}
                     />
                   )}
 

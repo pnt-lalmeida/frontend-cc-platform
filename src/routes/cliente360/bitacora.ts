@@ -334,7 +334,7 @@ export function validarGestion(form: FormGestion, motivos: string[], canales: st
   return errores;
 }
 
-function esFechaValida(iso: string): boolean {
+export function esFechaValida(iso: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
   const [a, m, d] = iso.split("-").map(Number);
   const fecha = new Date(Date.UTC(a, m - 1, d));

@@ -355,3 +355,49 @@ export interface SituacionCuentaResponse {
 export interface GuardarSituacionRequest {
   situacion: string | null;
 }
+
+// Fase 4 CRM (29/09/2026): promesas de pago. Un compromiso que el cliente le
+// da a la operadora ("te pago $X el dia D"); lo registra ella a mano y un
+// proceso del backend verifica despues contra los pagos reales de SAP.
+export type EstadoPromesa =
+  | "vigente"
+  | "vencida_a_verificar"
+  | "cumplida"
+  | "cumplida_parcial"
+  | "incumplida"
+  | "renegociada";
+
+export interface PromesaPago {
+  id: number;
+  numero_sn: string | null;
+  card_code: string;
+  // YYYY-MM-DD, dia calendario (sin hora).
+  fecha_prometida: string;
+  importe: number;
+  // Ya normalizada por el backend: "UYU" | "USD" | "EUR".
+  moneda: string;
+  canal: string | null;
+  facturas: string | null;
+  // UPN de quien la registro.
+  registrada_por: string;
+  registrada_utc: string;
+  estado: EstadoPromesa;
+  estado_utc: string | null;
+  importe_verificado: number | null;
+}
+
+// GET /api/clientes/{card_code}/promesas. No trae los canales: se reusan los
+// de la respuesta de la Bitacora.
+export interface PromesasResponse {
+  promesas: PromesaPago[];
+  monedas: string[];
+}
+
+// POST /api/clientes/{card_code}/promesas (responde 201 con la promesa creada)
+export interface RegistrarPromesaRequest {
+  fecha_prometida: string;
+  importe: number;
+  moneda: string;
+  canal?: string;
+  facturas?: string;
+}
