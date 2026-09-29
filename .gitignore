@@ -6,3 +6,6 @@ dist/
 *.local
 .DS_Store
 *.tsbuildinfo
+
+# Worktrees temporales de agentes (Claude Code) - nunca se commitean
+.claude/worktrees/
