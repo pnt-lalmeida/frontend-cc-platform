@@ -15,6 +15,7 @@ import { LineaIndicadoresPago } from "./bandeja/LineaIndicadoresPago";
 import { LineaPromesaPago } from "./bandeja/LineaPromesaPago";
 import { formatDate, formatMoney } from "../design/format";
 import { agruparPorCliente, type GrupoCliente } from "./bandeja/agrupar";
+import { pagadorDeGrupo, resumenPagadores, type ResumenPagador } from "./bandeja/pagadores";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
 import { useCandidatos } from "./bandeja/useCandidatos";
@@ -93,6 +94,7 @@ export function BandejaPage() {
     [candidatosOrdenados, busqueda, filtroEstado]
   );
   const gruposFiltrados = useMemo(() => agruparPorCliente(candidatosFiltrados), [candidatosFiltrados]);
+  const resumenPagadoresCola = useMemo(() => resumenPagadores(gruposFiltrados), [gruposFiltrados]);
   const cantidadPendientes = candidatos.filter((c) => c.status_aprobacion === "Pendiente").length;
   const cantidadRechazados = candidatos.filter((c) => c.status_aprobacion === "Rechazado").length;
 
@@ -463,6 +465,7 @@ export function BandejaPage() {
                   <div key={grupo.clave}>
                     <EncabezadoGrupo
                       grupo={grupo}
+                      resumenPagadores={resumenPagadoresCola}
                       colapsado={colapsado}
                       onToggleColapso={() => alternarColapso(grupo.clave)}
                       seleccionTotal={seleccionTotal}
@@ -591,6 +594,14 @@ export function BandejaPage() {
                       enPiloto={enPiloto("promesas")}
                       pegadaAIndicadores={habilitada("indicadores_pago")}
                     />
+                  )}
+
+                  {seleccionado.pagador_central && (
+                    <div style={{ marginBottom: 14, fontSize: 13 }}>
+                      <span style={{ color: "var(--color-muted)" }}>Pagador central: </span>
+                      <span style={{ fontFamily: "var(--font-mono)" }}>{seleccionado.pagador_central}</span>
+                      {seleccionado.pagador_central_nombre ? ` · ${seleccionado.pagador_central_nombre}` : ""}
+                    </div>
                   )}
 
                   {seleccionado.cliente_suspendido && (
@@ -853,6 +864,7 @@ function Estadistica({ etiqueta, valor, mono }: { etiqueta: string; valor: strin
 
 function EncabezadoGrupo({
   grupo,
+  resumenPagadores,
   colapsado,
   onToggleColapso,
   seleccionTotal,
@@ -860,6 +872,7 @@ function EncabezadoGrupo({
   onToggleSeleccionGrupo,
 }: {
   grupo: GrupoCliente;
+  resumenPagadores: Map<string, ResumenPagador>;
   colapsado: boolean;
   onToggleColapso: () => void;
   seleccionTotal: boolean;
@@ -874,6 +887,8 @@ function EncabezadoGrupo({
   }, [seleccionTotal, seleccionParcial]);
 
   const nombre = grupo.cardName ?? grupo.cardCode ?? "Cliente sin nombre";
+  const pagador = pagadorDeGrupo(grupo);
+  const cuentasDelPagador = pagador ? (resumenPagadores.get(pagador.codigo)?.cuentas ?? 1) : 0;
 
   return (
     <div
@@ -884,6 +899,8 @@ function EncabezadoGrupo({
         padding: "9px 18px 9px 12px",
         background: "var(--color-paper)",
         borderTop: "1px solid var(--color-line)",
+        // Pagador central: marca lateral con el acento existente - solo informativa.
+        borderLeft: pagador ? "3px solid var(--color-accent)" : undefined,
       }}
     >
       <input
@@ -911,8 +928,17 @@ function EncabezadoGrupo({
           color: "inherit",
         }}
       >
-        <span style={{ fontWeight: 600, fontSize: 12.5 }}>
-          {colapsado ? "▸" : "▾"} {nombre}
+        <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+          <span style={{ fontWeight: 600, fontSize: 12.5 }}>
+            {colapsado ? "▸" : "▾"} {nombre}
+          </span>
+          {pagador && (
+            <span style={{ fontSize: 12, color: "var(--color-accent-ink)", fontWeight: 500 }}>
+              {`Lo paga ${pagador.codigo}${pagador.nombre ? ` · ${pagador.nombre}` : ""}${
+                cuentasDelPagador > 1 ? ` · ${cuentasDelPagador} cuentas en la cola` : ""
+              }`}
+            </span>
+          )}
         </span>
         <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>
           {grupo.pedidos.length} pedido{grupo.pedidos.length === 1 ? "" : "s"}
