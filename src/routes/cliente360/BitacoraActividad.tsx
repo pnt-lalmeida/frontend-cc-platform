@@ -1028,7 +1028,11 @@ function FormularioGestion({
 
   return (
     <form onSubmit={enviar} noValidate>
-      <Campo id="gestion-motivo" etiqueta="Motivo" error={errores.resultado}>
+      {/* "Resultado", no "Motivo" (pedido de Claudia y Rosina, 30/09/2026): los
+          valores dicen como quedo la gestion, no que accion se hizo. "Estado"
+          se descarto por chocar con "Situacion de la cuenta", en esta misma
+          ficha. El id y la clave de la API siguen diciendo "motivo"/"motivos". */}
+      <Campo id="gestion-motivo" etiqueta="Resultado" error={errores.resultado}>
         <select
           id="gestion-motivo"
           value={form.resultado}
@@ -1040,7 +1044,7 @@ function FormularioGestion({
           }}
           style={{ ...CAMPO, borderColor: errores.resultado ? "var(--color-risk)" : undefined, color: form.resultado ? "var(--color-ink)" : "var(--color-muted)" }}
         >
-          <option value="">Elegí un motivo…</option>
+          <option value="">Elegí un resultado…</option>
           {motivos.map((m) => (
             <option key={m} value={m} style={{ color: "var(--color-ink)" }}>
               {m}

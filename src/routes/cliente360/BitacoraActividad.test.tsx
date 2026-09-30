@@ -80,6 +80,18 @@ describe("BitacoraActividad — Bitácora v2", () => {
     localStorage.clear();
   });
 
+  // Pedido de Claudia y Rosina (30/09/2026): el campo se llama "Resultado",
+  // no "Motivo". El "Motivo:" que aparece en la nota de un evento automatico
+  // es otra cosa (el motivo de autorizacion que escribe la Bandeja).
+  it("el campo de la gestión se llama Resultado, no Motivo", async () => {
+    obtenerBitacora.mockResolvedValue(bitacora());
+    montar();
+
+    expect(await screen.findByLabelText("Resultado")).toBeTruthy();
+    expect(screen.queryByLabelText("Motivo")).toBeNull();
+    expect(screen.getByRole("option", { name: "Elegí un resultado…" })).toBeTruthy();
+  });
+
   it("muestra el resumen con la última gestión y los recordatorios vencidos", async () => {
     const g = manual(40);
     obtenerBitacora.mockResolvedValue(
