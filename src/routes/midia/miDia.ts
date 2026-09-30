@@ -48,6 +48,35 @@ export function nombreCliente(cliente: ClienteDelDia): string {
   return cliente.nombre?.trim() || cliente.card_code;
 }
 
+// Un importe por cuenta, cada uno en su moneda y NUNCA sumados. Una cuenta en
+// cero no informa nada ("US$ 0" ensucia la fila): se omite si otra tiene saldo;
+// si todas estan en cero queda una sola, para que la fila no diga nada raro.
+export function importesDeCliente(cliente: ClienteDelDia): string[] {
+  const conSaldo = cliente.cuentas.filter((c) => c.saldo !== 0);
+  const mostrar = conSaldo.length > 0 ? conSaldo : cliente.cuentas.slice(0, 1);
+  return mostrar.map((c) => formatMoneyEntero(c.saldo, c.moneda));
+}
+
+/* -------------------------------------------------------------- busqueda */
+
+// Minusculas, sin acentos y con espacios colapsados: en nombres uruguayos
+// ("Simón", "Ñandú") el acento o la mayuscula no pueden hacer que no aparezca.
+export function normalizarBusqueda(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function coincide(cliente: ClienteDelDia, palabras: string[]): boolean {
+  const pajar = normalizarBusqueda(
+    [cliente.nombre ?? "", cliente.numero_sn ?? "", cliente.card_code, cliente.clave, ...cliente.cuentas.map((c) => c.card_code)].join(" ")
+  );
+  return palabras.every((p) => pajar.includes(p));
+}
+
 /* ---------------------------------------------------------------- grupos */
 
 export type ClaveGrupo = "manual" | "automaticos" | "otros" | "mensuales";
@@ -99,6 +128,9 @@ export interface VistaClientes {
   total: number;
   hechos: number;
   quedan: number;
+  // Filas que dejo la busqueda (grupos + hechos), o null si no se busca. El
+  // progreso (total/hechos/quedan) nunca depende de la busqueda.
+  coinciden: number | null;
   grupos: GrupoVista[];
   // Gestionados desde antes de abrir la pantalla: van a "Hechos hoy".
   hechosLista: ClienteDelDia[];
@@ -107,9 +139,13 @@ export interface VistaClientes {
 interface OpcionesVista {
   recienHechos: ReadonlySet<string>;
   soloVencido: boolean;
+  busqueda?: string;
 }
 
-export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencido }: OpcionesVista): VistaClientes {
+export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencido, busqueda = "" }: OpcionesVista): VistaClientes {
+  const palabras = normalizarBusqueda(busqueda).split(" ").filter(Boolean);
+  const buscando = palabras.length > 0;
+  let coinciden = 0;
   const ordenados = [...clientes].sort(comparar);
   const hechosLista: ClienteDelDia[] = [];
   const porGrupo = new Map<ClaveGrupo, { pendientes: number; filas: FilaVista[] }>();
@@ -120,14 +156,20 @@ export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencid
     const hecho = cliente.gestionada_hoy === true;
     if (hecho || reciente) hechos += 1;
     if (hecho && !reciente) {
-      hechosLista.push(cliente);
+      if (!buscando || coincide(cliente, palabras)) {
+        hechosLista.push(cliente);
+        coinciden += 1;
+      }
       continue;
     }
     const clave = grupoDe(cliente);
     const grupo = porGrupo.get(clave) ?? { pendientes: 0, filas: [] };
     porGrupo.set(clave, grupo);
     if (!reciente) grupo.pendientes += 1;
-    if (!soloVencido || cliente.tiene_vencido) grupo.filas.push({ cliente, apagada: reciente });
+    if ((!soloVencido || cliente.tiene_vencido) && (!buscando || coincide(cliente, palabras))) {
+      grupo.filas.push({ cliente, apagada: reciente });
+      coinciden += 1;
+    }
   }
 
   const grupos = GRUPOS.flatMap(({ clave, titulo }) => {
@@ -135,7 +177,7 @@ export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencid
     return grupo && grupo.filas.length > 0 ? [{ clave, titulo, pendientes: grupo.pendientes, filas: grupo.filas }] : [];
   });
 
-  return { total: clientes.length, hechos, quedan: clientes.length - hechos, grupos, hechosLista };
+  return { total: clientes.length, hechos, quedan: clientes.length - hechos, coinciden: buscando ? coinciden : null, grupos, hechosLista };
 }
 
 function plural(n: number, singular: string, pluralTexto: string): string {

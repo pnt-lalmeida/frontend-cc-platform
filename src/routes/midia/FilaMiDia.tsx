@@ -1,12 +1,15 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
 import type { ClienteDelDia } from "../../api/types";
-import { formatMoneyEntero } from "../../design/format";
 import { MAX_NOTA } from "../cliente360/bitacora";
-import { nombreCliente } from "./miDia";
+import { urlDeCliente } from "../cliente360/urlCliente";
+import { importesDeCliente, nombreCliente } from "./miDia";
 
-// Una fila de la lista de trabajo. Densa y tocable: en escritorio todo en una
-// linea; en celular el nombre arriba y, abajo, numero, saldo y marcas, con el
-// boton de registrar a la derecha (minimo 44px, ver tokens.css).
+// Una fila de la lista de trabajo = un CLIENTE (con una o varias cuentas).
+// Densa y tocable: en escritorio todo en una linea; en celular el nombre
+// arriba y, abajo, numero, importes y marcas, con las acciones a la derecha
+// (minimo 44px). "Registrar" es la accion principal; "Ver ficha" es un
+// enlace discreto al lado, para que no compitan.
 
 export interface EstadoResultadosFila {
   lista: string[] | null;
@@ -47,7 +50,7 @@ export function FilaMiDia({
 }: PropsFila) {
   const nombre = nombreCliente(cliente);
   const botonRef = useRef<HTMLButtonElement>(null);
-  const filaRef = useRef<HTMLLIElement>(null);
+  const importes = importesDeCliente(cliente);
 
   function abrir() {
     if (abierta) return cerrar();
@@ -61,15 +64,13 @@ export function FilaMiDia({
 
   async function registrar(resultado: string, nota: string) {
     const ok = await onRegistrar(cliente.card_code, resultado, nota);
-    if (ok) {
-      onCerrar();
-      // El formulario desaparece: el foco no puede quedar en el aire.
-      filaRef.current?.focus();
-    }
+    // El formulario desaparece: a donde va el foco lo decide la pantalla
+    // (la siguiente fila pendiente), porque depende de toda la lista.
+    if (ok) onCerrar();
   }
 
   return (
-    <li ref={filaRef} tabIndex={-1} className="midia-fila" data-apagada={apagada ? "true" : undefined}>
+    <li tabIndex={-1} className="midia-fila" data-card-code={cliente.card_code} data-apagada={apagada ? "true" : undefined}>
       <div className="midia-fila-meta">
         <span className="midia-numero">{cliente.numero_sn ?? cliente.card_code}</span>
         <span className="midia-marcas">
@@ -78,27 +79,45 @@ export function FilaMiDia({
               <span aria-hidden="true">⚠</span> <span>vencido</span>
             </span>
           )}
-          {cliente.saldo_en_otra_moneda && <span className="midia-otra-moneda">también en otra moneda</span>}
+          {cliente.cuentas.some((c) => c.saldo_en_otra_moneda) && (
+            <span className="midia-otra-moneda">también en otra moneda</span>
+          )}
           {apagada && <span className="midia-chip midia-chip-hecho">Hecho</span>}
           {anotada && !apagada && <span className="midia-chip">Sin contactar</span>}
         </span>
-        <span className="midia-saldo">{formatMoneyEntero(cliente.saldo, cliente.moneda)}</span>
+        <span className="midia-saldo">
+          {importes.map((importe, i) => (
+            <Fragment key={`${i}-${importe}`}>
+              {i > 0 && (
+                <span className="midia-sep" aria-hidden="true">
+                  {" · "}
+                </span>
+              )}
+              <span className="midia-importe">{importe}</span>
+            </Fragment>
+          ))}
+        </span>
       </div>
       <span className="midia-nombre" data-testid="midia-nombre">
         {nombre}
       </span>
-      {puedeRegistrar && !apagada && (
-        <button
-          ref={botonRef}
-          type="button"
-          className="midia-boton"
-          aria-expanded={abierta}
-          aria-label={`Registrar gestión de ${nombre}`}
-          onClick={abrir}
-        >
-          Registrar
-        </button>
-      )}
+      <div className="midia-acciones">
+        <Link to={urlDeCliente(cliente.card_code)} className="midia-ficha" aria-label={`Ver ficha de ${nombre}`}>
+          Ver ficha
+        </Link>
+        {puedeRegistrar && !apagada && (
+          <button
+            ref={botonRef}
+            type="button"
+            className="midia-boton"
+            aria-expanded={abierta}
+            aria-label={`Registrar gestión de ${nombre}`}
+            onClick={abrir}
+          >
+            Registrar
+          </button>
+        )}
+      </div>
       {abierta && puedeRegistrar && !apagada && (
         <FormularioRegistro
           cardCode={cliente.card_code}
