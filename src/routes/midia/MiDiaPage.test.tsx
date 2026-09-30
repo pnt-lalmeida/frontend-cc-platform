@@ -31,15 +31,21 @@ const apiMock = {
 };
 vi.mock("./useApiMiDia", () => ({ useApiMiDia: () => apiMock }));
 
-function cliente(parcial: Partial<ClienteDelDia> = {}): ClienteDelDia {
+type ParcialCliente = Partial<ClienteDelDia> & { moneda?: string; saldo?: number; saldo_en_otra_moneda?: boolean };
+
+// Un cliente con una sola cuenta salvo que el test pase `cuentas`: moneda,
+// saldo y saldo_en_otra_moneda son atajos para esa cuenta unica.
+function cliente({ moneda, saldo, saldo_en_otra_moneda, ...parcial }: ParcialCliente = {}): ClienteDelDia {
+  const cardCode = parcial.card_code ?? "C1-02928";
   return {
-    card_code: "C1-02928",
+    card_code: cardCode,
     nombre: "Dulces del Sur",
     numero_sn: "02928",
     clave: "02928",
-    moneda: "UYU",
-    saldo: 11360,
-    saldo_en_otra_moneda: false,
+    padre: null,
+    cuentas: [
+      { card_code: cardCode, moneda: moneda ?? "UYU", saldo: saldo ?? 11360, tiene_vencido: false, saldo_en_otra_moneda: saldo_en_otra_moneda ?? false },
+    ],
     tiene_vencido: false,
     canal: "manual",
     origen: "dia",
@@ -601,5 +607,240 @@ describe("MiDiaPage: pie", () => {
     const detalle = resumen.closest("details") as HTMLElement;
     expect(within(detalle).getByText(/C1-05555/)).toBeTruthy();
     expect(within(detalle).getByText(/folio jueves/)).toBeTruthy();
+  });
+});
+
+/* ------------------------------------------------ mejoras de usabilidad 2 */
+
+function cuenta(cardCode: string, moneda: string, saldo: number, extra: object = {}) {
+  return { card_code: cardCode, moneda, saldo, tiene_vencido: false, saldo_en_otra_moneda: false, ...extra };
+}
+
+describe("MiDiaPage: una fila por cliente, con sus cuentas", () => {
+  it("un cliente con dos monedas es UNA fila con un importe por cuenta, sin sumar", async () => {
+    const dosCuentas = cliente({
+      card_code: "C1-12701",
+      numero_sn: "12701",
+      nombre: "Casa Ejemplo",
+      cuentas: [cuenta("C1-12701", "UYU", 246792), cuenta("C2-12701", "USD", 7411, { tiene_vencido: true })],
+      tiene_vencido: true,
+    });
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia([dosCuentas]) }));
+    montar();
+    await screen.findByText("Te queda 1 de 1");
+    const filas = within(screen.getByRole("list", { name: "Clientes de Manual" })).getAllByRole("listitem");
+    expect(filas).toHaveLength(1);
+    expect(within(filas[0]).getByText("$ 246.792")).toBeTruthy();
+    expect(within(filas[0]).getByText("US$ 7.411")).toBeTruthy();
+    // El vencido es una sola marca del cliente.
+    expect(within(filas[0]).getAllByText("vencido")).toHaveLength(1);
+    expect(screen.queryByText(/Total/i)).toBeNull();
+  });
+
+  it("una cuenta en cero no se muestra si la otra tiene saldo", async () => {
+    const c = cliente({ cuentas: [cuenta("C1-02928", "UYU", 0), cuenta("C2-02928", "USD", 2100)] });
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia([c]) }));
+    montar();
+    await screen.findByText("Te queda 1 de 1");
+    expect(screen.getByText("US$ 2.100")).toBeTruthy();
+    expect(screen.queryByText("$ 0")).toBeNull();
+  });
+
+  it("con todas las cuentas en cero muestra una sola", async () => {
+    const c = cliente({ cuentas: [cuenta("C1-02928", "UYU", 0), cuenta("C2-02928", "USD", 0)] });
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia([c]) }));
+    montar();
+    await screen.findByText("Te queda 1 de 1");
+    expect(screen.getByText("$ 0")).toBeTruthy();
+    expect(screen.queryByText("US$ 0")).toBeNull();
+  });
+
+  it("la gestión se registra con el card_code del cliente", async () => {
+    const c = cliente({
+      card_code: "C1-12701",
+      numero_sn: "12701",
+      nombre: "Casa Ejemplo",
+      cuentas: [cuenta("C1-12701", "UYU", 5), cuenta("C2-12701", "USD", 6)],
+    });
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia([c]) }));
+    montar();
+    await screen.findByText("Te queda 1 de 1");
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gestión de Casa Ejemplo" }));
+    const form = await screen.findByRole("group", { name: "Registrar gestión de Casa Ejemplo" });
+    fireEvent.change(await within(form).findByLabelText("Resultado"), { target: { value: "Gestionado" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Guardar" }));
+    await screen.findByText("Gestionaste el único cliente de hoy");
+    expect(registrar).toHaveBeenCalledWith("C1-12701", { resultado: "Gestionado" });
+  });
+});
+
+describe("MiDiaPage: ver ficha", () => {
+  it("cada fila tiene un enlace a la ficha del cliente, con su nombre", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    const enlace = screen.getByRole("link", { name: "Ver ficha de Dulces del Sur" });
+    expect(enlace.getAttribute("href")).toBe("/cliente-360?cliente=C1-02928");
+    expect(enlace.textContent).toBe("Ver ficha");
+  });
+
+  it("también en los ya gestionados (es donde se mira 'qué tenía')", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    fireEvent.click(screen.getByRole("button", { name: /Hechos hoy · 1/ }));
+    expect(screen.getByRole("link", { name: "Ver ficha de Correo Dos" })).toBeTruthy();
+  });
+
+  it("no depende de la función de Bitácora", async () => {
+    featuresHabilitadas.delete("bitacora");
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    expect(screen.getByRole("link", { name: "Ver ficha de Dulces del Sur" })).toBeTruthy();
+  });
+});
+
+describe("MiDiaPage: buscar por nombre o número", () => {
+  async function abrir() {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    return screen.getByRole("searchbox", { name: "Buscar cliente" }) as HTMLInputElement;
+  }
+  const nombresVisibles = () => screen.queryAllByTestId("midia-nombre").map((n) => n.textContent);
+
+  it("filtra por nombre ignorando mayúsculas y acentos, dice cuántos quedan y no toca el progreso", async () => {
+    const campo = await abrir();
+    fireEvent.change(campo, { target: { value: "FUTBOL" } });
+    expect(nombresVisibles()).toEqual(["Fútbol Ejemplo"]);
+    expect(screen.getByText("1 de 6 clientes")).toBeTruthy();
+    expect(screen.getByText("Te quedan 5 de 6")).toBeTruthy();
+  });
+
+  it("filtra por número de cliente, con o sin ceros a la izquierda", async () => {
+    const campo = await abrir();
+    fireEvent.change(campo, { target: { value: "7094" } });
+    expect(nombresVisibles()).toEqual(["Betabel Ejemplo"]);
+  });
+
+  it("encuentra también en grupos cerrados y entre los ya gestionados, sin abrir nada a mano", async () => {
+    const campo = await abrir();
+    expect(nombresVisibles()).not.toContain("Correo Uno");
+    fireEvent.change(campo, { target: { value: "correo" } });
+    expect(nombresVisibles()).toEqual(["Correo Uno", "Correo Dos"]);
+    expect(screen.getByText("2 de 6 clientes")).toBeTruthy();
+  });
+
+  it("sin coincidencias lo dice, y 'Limpiar' vuelve a la lista entera con el foco en el campo", async () => {
+    const campo = await abrir();
+    fireEvent.change(campo, { target: { value: "zzz" } });
+    expect(screen.getByText("Ningún cliente coincide con «zzz».")).toBeTruthy();
+    expect(nombresVisibles()).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    expect(campo.value).toBe("");
+    expect(nombresVisibles()).toHaveLength(3);
+    expect(screen.queryByText(/ de 6 clientes/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Limpiar búsqueda" })).toBeNull();
+    expect(document.activeElement).toBe(campo);
+  });
+
+  it("Escape dentro del campo lo limpia", async () => {
+    const campo = await abrir();
+    fireEvent.change(campo, { target: { value: "dulces" } });
+    fireEvent.keyDown(campo, { key: "Escape" });
+    expect(campo.value).toBe("");
+    expect(nombresVisibles()).toHaveLength(3);
+  });
+
+  it("no pagina: con 289 clientes todos están en la página", async () => {
+    const muchos = Array.from({ length: 289 }, (_, i) =>
+      cliente({ card_code: `C1-${String(i).padStart(5, "0")}`, numero_sn: String(i).padStart(5, "0"), nombre: `Cliente ${i}` })
+    );
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia(muchos) }));
+    montar();
+    await screen.findByText("Te quedan 289 de 289");
+    expect(screen.getAllByTestId("midia-nombre")).toHaveLength(289);
+    expect(screen.queryByText(/página/i)).toBeNull();
+  });
+});
+
+describe("MiDiaPage: progreso siempre a la vista", () => {
+  it("el 'Te quedan N de M' y la barra viven en un bloque pegado arriba", async () => {
+    montar();
+    const quedan = await screen.findByText("Te quedan 5 de 6");
+    const pegado = quedan.closest(".midia-progreso");
+    expect(pegado).not.toBeNull();
+    expect(pegado?.contains(screen.getByRole("progressbar", { name: "Progreso de hoy" }))).toBe(true);
+  });
+});
+
+describe("MiDiaPage: el foco sigue al trabajo", () => {
+  async function registrarCliente(nombre: string, resultado = "Gestionado") {
+    fireEvent.click(screen.getByRole("button", { name: `Registrar gestión de ${nombre}` }));
+    const form = await screen.findByRole("group", { name: `Registrar gestión de ${nombre}` });
+    fireEvent.change(await within(form).findByLabelText("Resultado"), { target: { value: resultado } });
+    fireEvent.click(within(form).getByRole("button", { name: "Guardar" }));
+  }
+
+  it("al registrar, el foco pasa al botón Registrar de la siguiente fila pendiente", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    await registrarCliente("Dulces del Sur");
+    await screen.findByText("Te quedan 4 de 6");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Registrar gestión de Fútbol Ejemplo" }))
+    );
+  });
+
+  it("salta las filas que ya están hechas", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    await registrarCliente("Fútbol Ejemplo");
+    await screen.findByText("Te quedan 4 de 6");
+    await registrarCliente("Dulces del Sur");
+    await screen.findByText("Te quedan 3 de 6");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Registrar gestión de Betabel Ejemplo" }))
+    );
+  });
+
+  it("con 'No contactado' también avanza (el cliente sigue pendiente, pero ya se intentó)", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    await registrarCliente("Dulces del Sur", "No contactado");
+    await screen.findByText("Sin contactar");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Registrar gestión de Fútbol Ejemplo" }))
+    );
+  });
+
+  it("si era la última de la lista lo dice y el foco va al progreso, no a la nada", async () => {
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia([cliente()]) }));
+    montar();
+    await screen.findByText("Te queda 1 de 1");
+    await registrarCliente("Dulces del Sur");
+    const progreso = await screen.findByText("Gestionaste el único cliente de hoy");
+    await waitFor(() => expect(document.activeElement).toBe(progreso));
+    expect(screen.getByRole("status").textContent).toMatch(/último/i);
+  });
+
+  it("si era la última a la vista pero quedan otros (grupos cerrados), lo dice con cuántos quedan", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    await registrarCliente("Fútbol Ejemplo");
+    await screen.findByText("Te quedan 4 de 6");
+    await registrarCliente("Betabel Ejemplo");
+    await screen.findByText("Te quedan 3 de 6");
+    await registrarCliente("Dulces del Sur");
+    const progreso = await screen.findByText("Te quedan 2 de 6");
+    await waitFor(() => expect(document.activeElement).toBe(progreso));
+    expect(screen.getByRole("status").textContent).toMatch(/No hay más pendientes debajo/);
+  });
+
+  it("cancelar con Escape sigue devolviendo el foco al botón de esa fila", async () => {
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gestión de Dulces del Sur" }));
+    const form = await screen.findByRole("group", { name: "Registrar gestión de Dulces del Sur" });
+    await within(form).findByLabelText("Resultado");
+    fireEvent.keyDown(within(form).getByLabelText("Resultado"), { key: "Escape" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Registrar gestión de Dulces del Sur" }));
   });
 });

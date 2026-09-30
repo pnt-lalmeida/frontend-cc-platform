@@ -12,7 +12,19 @@
   font-family: var(--font-mono);
 }
 .midia-encabezado {
-  margin-bottom: 20px;
+  margin-bottom: 4px;
+}
+/* El progreso queda pegado arriba al hacer scroll, justo debajo de la barra
+   de la app (64px en escritorio). Es compacto a proposito: lo que importa es
+   el numero y la barra, no que ocupe pantalla. */
+.midia-progreso {
+  position: sticky;
+  top: 64px;
+  z-index: 30;
+  margin-bottom: 14px;
+  padding: 6px 0 10px;
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-line);
 }
 .midia-encabezado-fila {
   display: flex;
@@ -31,12 +43,20 @@
   color: var(--color-muted);
 }
 .midia-quedan {
-  margin: 6px 0 10px;
+  margin: 0 0 8px;
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1.15;
   color: var(--color-ink);
+}
+.midia-quedan:focus {
+  outline: none;
+}
+.midia-quedan:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 .midia-barra {
   height: 8px;
@@ -92,8 +112,38 @@
 }
 .midia-barra-herramientas {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 4px;
+}
+.midia-buscador {
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+}
+.midia-buscar {
+  flex: 1;
+  width: 100%;
+}
+/* La X nativa de type=search se duplicaria con "Limpiar busqueda". */
+.midia-buscar::-webkit-search-cancel-button {
+  appearance: none;
+  display: none;
+}
+.midia-limpiar {
+  white-space: nowrap;
+}
+.midia-conteo {
+  margin: 0 0 8px;
+  min-height: 18px;
+  font-size: 12.5px;
+  color: var(--color-muted);
+}
+.midia-grupo-fijo {
+  cursor: default;
 }
 .midia-filtro {
   padding: 4px 12px;
@@ -193,13 +243,41 @@
 }
 .midia-saldo {
   grid-area: saldo;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   font-family: var(--font-mono);
   font-size: 13.5px;
   text-align: right;
   min-width: 92px;
 }
-.midia-fila > .midia-boton {
+/* Un importe por cuenta: nunca se parte a la mitad de "US$ 7.411". */
+.midia-importe {
+  white-space: nowrap;
+}
+.midia-sep {
+  color: var(--color-muted);
+  white-space: pre;
+}
+.midia-acciones {
   grid-area: accion;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+/* "Ver ficha" es un enlace quieto; "Registrar" (boton con borde) es la
+   accion principal y no tiene que competir con el. */
+.midia-ficha {
+  padding: 5px 8px;
+  font-size: 12.5px;
+  color: var(--color-accent-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.midia-ficha:hover {
+  color: var(--color-ink);
 }
 .midia-vencido {
   color: var(--color-risk);
@@ -375,6 +453,7 @@
   padding: 4px 0;
 }
 .midia-grupo-boton:focus-visible,
+.midia-ficha:focus-visible,
 .midia-filtro:focus-visible,
 .midia-boton:focus-visible,
 .midia-control:focus-visible,
@@ -390,11 +469,30 @@
   }
 }
 @media (max-width: 720px) {
+  /* En el celular la barra de la app (fija, de ~100px con el menu) se comeria
+     media pantalla junto al progreso: en esta pantalla se va con el scroll y
+     el progreso queda pegado arriba de todo. */
+  body:has(.midia) .app-header {
+    position: static !important;
+  }
+  .midia-progreso {
+    top: 0;
+    margin-bottom: 10px;
+    padding: 4px 0 6px;
+  }
   .midia-titulo {
     font-size: 19px;
   }
   .midia-quedan {
-    font-size: 28px;
+    font-size: 20px;
+    margin-bottom: 5px;
+  }
+  .midia-barra {
+    height: 6px;
+  }
+  .midia-buscador {
+    flex-basis: 100%;
+    max-width: none;
   }
   .midia-fila {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -403,6 +501,23 @@
       "meta accion";
     row-gap: 4px;
     padding: 10px 12px;
+  }
+  .midia-acciones {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    min-width: 96px;
+  }
+  .midia-ficha {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    box-sizing: border-box;
+  }
+  .midia-saldo {
+    justify-content: flex-start;
   }
   .midia-fila-meta {
     grid-area: meta;

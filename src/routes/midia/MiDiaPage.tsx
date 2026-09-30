@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link } from "react-router-dom";
 import type { ClientesDelDia, MiDiaResponse } from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
@@ -30,8 +30,13 @@ export function MiDiaPage() {
   const { datos, cargando, error, recargar } = useMiDia(api.obtener);
   const registro = useRegistroMiDia(api.registro);
   const [soloVencido, setSoloVencido] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
   const [formAbierto, setFormAbierto] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
+  // Cliente recien registrado desde el que hay que mover el foco (ver efecto).
+  const [saltoDesde, setSaltoDesde] = useState<string | null>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
+  const progresoRef = useRef<HTMLParagraphElement>(null);
 
   const { reiniciar } = registro;
   const actualizar = useCallback(async () => {
@@ -48,9 +53,9 @@ export function MiDiaPage() {
   const vista = useMemo(
     () =>
       clientesDelDia && clientesDelDia.es_dia_habil
-        ? armarVista(clientesDelDia.clientes, { recienHechos: registro.recienHechos, soloVencido })
+        ? armarVista(clientesDelDia.clientes, { recienHechos: registro.recienHechos, soloVencido, busqueda })
         : null,
-    [clientesDelDia, registro.recienHechos, soloVencido]
+    [clientesDelDia, registro.recienHechos, soloVencido, busqueda]
   );
   const paraHoy = useMemo(
     () => (datos ? armarParaHoy(datos.tareas ?? [], datos.promesas ?? [], datos.fecha) : null),
@@ -68,11 +73,35 @@ export function MiDiaPage() {
           : `Gestión registrada: ${nombre}`
       );
     }
+    if (ok) setSaltoDesde(cardCode);
     return ok;
   }
 
+  // Al terminar una gestion el foco pasa al boton Registrar de la siguiente
+  // fila pendiente (en el orden en que se ve, salteando las ya hechas): con
+  // cientos de filas, bajar sin tocar el mouse es lo que hace rapido el dia.
+  // Si no hay ninguna mas, lo dice y deja el foco en el progreso en vez de
+  // perderlo. Espera a que el cliente figure como registrado para no decidir
+  // con un progreso viejo.
+  const { recienHechos, anotados } = registro;
+  useEffect(() => {
+    if (saltoDesde === null || !vista) return;
+    if (!recienHechos.has(saltoDesde) && !anotados.has(saltoDesde)) return;
+    const filas = Array.from(raizRef.current?.querySelectorAll<HTMLElement>("li.midia-fila[data-card-code]") ?? []);
+    const indice = filas.findIndex((f) => f.dataset.cardCode === saltoDesde);
+    const siguiente = filas.slice(indice + 1).find((f) => f.dataset.apagada !== "true");
+    if (siguiente) {
+      (siguiente.querySelector<HTMLElement>("button.midia-boton") ?? siguiente).focus();
+    } else {
+      (progresoRef.current ?? filas[indice])?.focus();
+      const frase = vista.quedan === 0 ? "Era el último pendiente." : "No hay más pendientes debajo de este cliente.";
+      setAviso((previo) => `${previo}. ${frase}`);
+    }
+    setSaltoDesde(null);
+  }, [saltoDesde, vista, recienHechos, anotados]);
+
   return (
-    <div className="midia">
+    <div className="midia" ref={raizRef}>
       <div role="status" aria-live="polite" className="sr-only">
         {aviso}
       </div>
@@ -91,6 +120,7 @@ export function MiDiaPage() {
             clientes={clientesDelDia}
             piloto={enPiloto("mi_dia")}
             cargando={cargando}
+            progresoRef={progresoRef}
             onActualizar={() => void actualizar()}
           />
           {error && <ErrorBloque texto={error} onReintentar={() => void actualizar()} compacto />}
@@ -104,6 +134,8 @@ export function MiDiaPage() {
             vista={vista}
             soloVencido={soloVencido}
             onSoloVencido={() => setSoloVencido((v) => !v)}
+            busqueda={busqueda}
+            onBusqueda={setBusqueda}
             onReintentar={() => void actualizar()}
             renderFila={(cliente, apagada) => (
               <FilaMiDia
@@ -156,6 +188,7 @@ function Encabezado({
   clientes,
   piloto,
   cargando,
+  progresoRef,
   onActualizar,
 }: {
   datos: MiDiaResponse;
@@ -163,46 +196,58 @@ function Encabezado({
   clientes: ClientesDelDia | null;
   piloto: boolean;
   cargando: boolean;
+  progresoRef: RefObject<HTMLParagraphElement>;
   onActualizar: () => void;
 }) {
   // Sin saber que se gestiono hoy no hay progreso que mostrar: fingirlo
   // ("Te quedan 198 de 198") seria peor que no decirlo.
   const progreso = vista && clientes?.gestion_conocida && vista.total > 0;
   return (
-    <header className="midia-encabezado">
-      <div className="midia-encabezado-fila">
-        <h1 className="midia-titulo">{fechaEncabezado(datos.fecha)}</h1>
-        {piloto && <BadgePiloto />}
-        <span className="midia-espacio" />
-        <button type="button" className="midia-boton" disabled={cargando} onClick={onActualizar}>
-          {cargando ? (
+    <>
+      <header className="midia-encabezado">
+        <div className="midia-encabezado-fila">
+          <h1 className="midia-titulo">{fechaEncabezado(datos.fecha)}</h1>
+          {piloto && <BadgePiloto />}
+          <span className="midia-espacio" />
+          <button type="button" className="midia-boton" disabled={cargando} onClick={onActualizar}>
+            {cargando ? (
+              <>
+                <span className="spinner" aria-hidden="true" /> Actualizando
+              </>
+            ) : (
+              "Actualizar"
+            )}
+          </button>
+        </div>
+      </header>
+      {/* El progreso es lo que distingue esta pantalla de una planilla: queda
+          pegado arriba al hacer scroll (la fecha, no). */}
+      {vista && vista.total > 0 && (
+        <div className="midia-progreso">
+          {progreso ? (
             <>
-              <span className="spinner" aria-hidden="true" /> Actualizando
+              <p className="midia-quedan" ref={progresoRef} tabIndex={-1}>
+                {textoQuedan(vista.quedan, vista.total)}
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Progreso de hoy"
+                aria-valuemin={0}
+                aria-valuemax={vista.total}
+                aria-valuenow={vista.hechos}
+                className="midia-barra"
+              >
+                <div className="midia-barra-relleno" style={{ width: `${(vista.hechos / vista.total) * 100}%` }} />
+              </div>
             </>
           ) : (
-            "Actualizar"
+            <p className="midia-quedan" ref={progresoRef} tabIndex={-1}>
+              {vista.total === 1 ? "1 cliente hoy" : `${vista.total} clientes hoy`}
+            </p>
           )}
-        </button>
-      </div>
-      {progreso && vista ? (
-        <>
-          <p className="midia-quedan">{textoQuedan(vista.quedan, vista.total)}</p>
-          <div
-            role="progressbar"
-            aria-label="Progreso de hoy"
-            aria-valuemin={0}
-            aria-valuemax={vista.total}
-            aria-valuenow={vista.hechos}
-            className="midia-barra"
-          >
-            <div className="midia-barra-relleno" style={{ width: `${(vista.hechos / vista.total) * 100}%` }} />
-          </div>
-        </>
-      ) : (
-        vista &&
-        vista.total > 0 && <p className="midia-quedan">{vista.total === 1 ? "1 cliente hoy" : `${vista.total} clientes hoy`}</p>
+        </div>
       )}
-    </header>
+    </>
   );
 }
 
@@ -264,6 +309,8 @@ function SeccionClientes({
   vista,
   soloVencido,
   onSoloVencido,
+  busqueda,
+  onBusqueda,
   onReintentar,
   renderFila,
 }: {
@@ -271,11 +318,14 @@ function SeccionClientes({
   vista: VistaClientes | null;
   soloVencido: boolean;
   onSoloVencido: () => void;
+  busqueda: string;
+  onBusqueda: (texto: string) => void;
   onReintentar: () => void;
   renderFila: (cliente: ClientesDelDia["clientes"][number], apagada: boolean) => JSX.Element;
 }) {
   const [abiertos, setAbiertos] = useState<Partial<Record<ClaveGrupo, boolean>>>({});
   const [verHechos, setVerHechos] = useState(false);
+  const campoRef = useRef<HTMLInputElement>(null);
 
   // Una lista vacia aca se leeria como "no hay nadie que contactar": cuando
   // el bloque fallo (null) se dice que no se pudo cargar.
@@ -286,6 +336,17 @@ function SeccionClientes({
     return <p className="midia-vacio">Hoy no hay clientes de seguimiento.</p>;
   }
 
+  // Buscando, los grupos con coincidencias se ven abiertos (el que llama
+  // pregunta por UN cliente, no quiere ir abriendo grupos): pasan a ser un
+  // titulo fijo hasta que se limpia la busqueda.
+  const buscando = vista.coinciden !== null;
+  const textoBusqueda = busqueda.trim();
+
+  function limpiar() {
+    onBusqueda("");
+    campoRef.current?.focus();
+  }
+
   return (
     <div className="midia-clientes">
       {!clientes.gestion_conocida && (
@@ -294,35 +355,67 @@ function SeccionClientes({
         </p>
       )}
       <div className="midia-barra-herramientas">
+        <div className="midia-buscador">
+          <input
+            ref={campoRef}
+            type="search"
+            className="midia-control midia-buscar"
+            aria-label="Buscar cliente"
+            placeholder="Buscar por nombre o número"
+            autoComplete="off"
+            value={busqueda}
+            onChange={(e) => onBusqueda(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && busqueda) {
+                e.preventDefault();
+                onBusqueda("");
+              }
+            }}
+          />
+          {busqueda && (
+            <button type="button" className="midia-boton midia-limpiar" onClick={limpiar}>
+              Limpiar búsqueda
+            </button>
+          )}
+        </div>
         <button type="button" className="midia-filtro" aria-pressed={soloVencido} onClick={onSoloVencido}>
           Solo con vencido
         </button>
       </div>
+      {/* Sin role="status": ya hay una region viva (la de avisos) y esta es
+          solo el conteo, que se anuncia con cortesia. */}
+      <p className="midia-conteo" aria-live="polite">
+        {buscando ? `${vista.coinciden} de ${vista.total} clientes` : ""}
+      </p>
 
-      {soloVencido && vista.grupos.length === 0 && vista.quedan > 0 && (
+      {buscando && vista.coinciden === 0 && <p className="midia-vacio">Ningún cliente coincide con «{textoBusqueda}».</p>}
+      {!buscando && soloVencido && vista.grupos.length === 0 && vista.quedan > 0 && (
         <p className="midia-vacio">Ningún cliente pendiente tiene vencido.</p>
       )}
 
       {vista.grupos.map((grupo, indice) => {
-        const abierto = abiertos[grupo.clave] ?? indice === 0;
+        const abierto = buscando || (abiertos[grupo.clave] ?? indice === 0);
         const idLista = `midia-grupo-${grupo.clave}`;
+        const titulo = `${grupo.titulo} · ${resumenGrupo(grupo.clave, grupo.pendientes)}`;
         return (
           <section key={grupo.clave} className="midia-grupo">
             <h2 className="midia-h2 midia-grupo-titulo">
-              <button
-                type="button"
-                className="midia-grupo-boton"
-                aria-expanded={abierto}
-                aria-controls={idLista}
-                onClick={() => setAbiertos((previos) => ({ ...previos, [grupo.clave]: !abierto }))}
-              >
-                <span>
-                  {grupo.titulo} · {resumenGrupo(grupo.clave, grupo.pendientes)}
-                </span>
-                <span className="midia-grupo-accion" aria-hidden="true">
-                  {abierto ? "ocultar" : "mostrar"}
-                </span>
-              </button>
+              {buscando ? (
+                <span className="midia-grupo-boton midia-grupo-fijo">{titulo}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="midia-grupo-boton"
+                  aria-expanded={abierto}
+                  aria-controls={idLista}
+                  onClick={() => setAbiertos((previos) => ({ ...previos, [grupo.clave]: !abierto }))}
+                >
+                  <span>{titulo}</span>
+                  <span className="midia-grupo-accion" aria-hidden="true">
+                    {abierto ? "ocultar" : "mostrar"}
+                  </span>
+                </button>
+              )}
             </h2>
             {abierto && (
               <ul id={idLista} aria-label={`Clientes de ${grupo.titulo}`} className="midia-lista">
@@ -333,23 +426,27 @@ function SeccionClientes({
         );
       })}
 
-      {vista.hechos > 0 && (
+      {(buscando ? vista.hechosLista.length > 0 : vista.hechos > 0) && (
         <section className="midia-grupo midia-hechos">
           <h2 className="midia-h2 midia-grupo-titulo">
-            <button
-              type="button"
-              className="midia-grupo-boton"
-              aria-expanded={verHechos}
-              aria-controls="midia-hechos-lista"
-              onClick={() => setVerHechos((v) => !v)}
-            >
-              <span>Hechos hoy · {vista.hechos}</span>
-              <span className="midia-grupo-accion" aria-hidden="true">
-                {verHechos ? "ocultar" : "mostrar"}
-              </span>
-            </button>
+            {buscando ? (
+              <span className="midia-grupo-boton midia-grupo-fijo">Hechos hoy · {vista.hechosLista.length}</span>
+            ) : (
+              <button
+                type="button"
+                className="midia-grupo-boton"
+                aria-expanded={verHechos}
+                aria-controls="midia-hechos-lista"
+                onClick={() => setVerHechos((v) => !v)}
+              >
+                <span>Hechos hoy · {vista.hechos}</span>
+                <span className="midia-grupo-accion" aria-hidden="true">
+                  {verHechos ? "ocultar" : "mostrar"}
+                </span>
+              </button>
+            )}
           </h2>
-          {verHechos && (
+          {(buscando || verHechos) && (
             <ul id="midia-hechos-lista" aria-label="Clientes hechos hoy" className="midia-lista">
               {vista.hechosLista.map((cliente) => renderFila(cliente, true))}
             </ul>

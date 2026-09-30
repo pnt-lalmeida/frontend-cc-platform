@@ -413,19 +413,34 @@ export interface RegistrarPromesaRequest {
 // vacia, que se leeria como "no hay nadie que contactar") y su nombre en `errores`.
 export type CanalMiDia = "mail" | "whatsapp" | "manual" | "daniel" | "pagador_central";
 
+// Una cuenta SAP del cliente (una por moneda). Cada moneda es una cuenta
+// separada: los saldos nunca se suman entre si.
+export interface CuentaDelDia {
+  card_code: string;
+  // Ya normalizada por el backend: "UYU" | "USD" | "EUR".
+  moneda: string;
+  // Ya en la moneda de la cuenta.
+  saldo: number;
+  tiene_vencido: boolean;
+  // La cuenta tiene residuo en otra moneda (aviso discreto, no alarma).
+  saldo_en_otra_moneda: boolean;
+}
+
+// Una fila por CLIENTE (no por cuenta): la operadora llama a un cliente, y la
+// gestion se registra por N.º SN, asi que dos filas del mismo cliente se
+// pisaban en silencio (Liber, 30/09/2026).
 export interface ClienteDelDia {
+  // Codigo de cuenta principal del cliente: el que va en el POST de la gestion.
   card_code: string;
   nombre: string | null;
   numero_sn: string | null;
   // N.º SN consolidado o card_code: la misma clave que usa la Bitacora.
   clave: string;
-  // Ya normalizada por el backend: "UYU" | "USD" | "EUR".
-  moneda: string;
-  // Ya en la moneda de la cuenta. Nunca se suma entre monedas.
-  saldo: number;
-  // La cuenta tiene residuo en otra moneda (aviso discreto, no alarma).
-  saldo_en_otra_moneda: boolean;
-  // Solo una marca: el vencido es una aproximacion y no viaja como importe.
+  // Hoy llega null en los casos verificados; el frontend no lo usa todavia.
+  padre: string | null;
+  cuentas: CuentaDelDia[];
+  // Solo una marca, del cliente (no por cuenta): el vencido es una
+  // aproximacion y no viaja como importe.
   tiene_vencido: boolean;
   canal: CanalMiDia;
   // "mensual" = entra por "no gestionado en el mes"; "dia" = por su dia fijo.
