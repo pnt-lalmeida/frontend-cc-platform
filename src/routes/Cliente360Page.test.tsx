@@ -235,3 +235,35 @@ describe("Cliente360Page — Saldo cta. cte. y Cuentas relacionadas (multi-moned
     expect(screen.getByText("US$ -16,96")).toBeTruthy();
   });
 });
+
+// 30/09/2026: "Comentarios" de la ficha SAP, solo lectura. Sin contenido no se
+// dibuja nada (2 de cada 3 fichas no lo tienen).
+describe("Cliente360Page — Comentarios", () => {
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    apiFetch.mockReset();
+  });
+
+  it("con comentarios los muestra, y siguen visibles al cambiar de pestaña", () => {
+    useFichaClienteMock.mockReturnValue({
+      ficha: { ...ficha, comentarios: "Paga a 30 dias\nAvisar por WhatsApp" },
+      facturas: [], pedidos: [], cheques: null, loading: false, error: null, recargar: () => {},
+    });
+    render(<Cliente360Page />);
+
+    expect(screen.getByTestId("comentarios-texto").textContent).toBe("Paga a 30 dias\nAvisar por WhatsApp");
+    fireEvent.click(screen.getByRole("button", { name: "Facturas" }));
+    expect(screen.getByTestId("comentarios-texto")).toBeTruthy();
+  });
+
+  it("sin comentarios (null) no dibuja el bloque", () => {
+    useFichaClienteMock.mockReturnValue({
+      ficha: { ...ficha, comentarios: null },
+      facturas: [], pedidos: [], cheques: null, loading: false, error: null, recargar: () => {},
+    });
+    render(<Cliente360Page />);
+
+    expect(screen.queryByTestId("comentarios-texto")).toBeNull();
+    expect(screen.queryByText(/comentarios/i)).toBeNull();
+  });
+});
