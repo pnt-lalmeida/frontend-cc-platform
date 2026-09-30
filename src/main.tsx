@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import "./design/tokens.css";
+import "./design/midia.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
