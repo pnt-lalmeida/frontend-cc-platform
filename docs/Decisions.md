@@ -485,3 +485,14 @@ Pedidos puntuales sobre lo ya construido, fuera del paquete de CRM liviano. Deta
 **4. `-M`/`-W`: no hubo nada que corregir.** La documentación ya decía lo correcto desde el 25/09 y no había código interpretando los sufijos.
 
 **Pendiente en los tres:** ninguno se revisó en un navegador a ancho de teléfono. El de mayor impacto visual es Comentarios, que en una de cada tres fichas empuja las pestañas ~100px hacia abajo.
+
+### 30/09/2026 — Regla nueva: el frontend se mira en un navegador, no se deduce del CSS
+**Origen:** en la segunda tanda de mejoras de "Mi día", el agente de frontend fue el primero que **abrió lo que construyó en un navegador real a 375px** en vez de razonarlo desde el CSS. En un minuto encontró algo que **ningún test detectaba**: en el celular, la barra de menú fija (~100px) más el encabezado de progreso se comían media pantalla. Lo resolvió haciendo que el menú se vaya con el scroll solo en esa pantalla.
+
+**El contraste importa:** varias entregas anteriores de esta misma sesión (Promesas, Comentarios de SAP, pagador central) salieron **sin que nadie las mirara**, con la suite entera en verde. Los tests prueban que la lógica es correcta; nunca que la pantalla se vea bien. Es un tipo de defecto que no tiene forma de aparecer en una aserción.
+
+**Queda como regla dura, en dos lugares:**
+- `.claude/agents/frontend.md`: abrir la pantalla en un navegador (arnés propio con datos inventados si no hay forma de autenticarse), mirarla a 375px y en escritorio, **y si no se pudo, decirlo explícitamente en el reporte** en vez de callarlo.
+- `.claude/agents/validador.md`: **si el reporte del frontend no menciona la revisión visual, eso es un hallazgo** y va en el reporte del Validador. No se da por hecho.
+
+**Por qué en los agentes y no solo acá:** es una regla de cómo se trabaja, no una decisión de producto. Los agentes leen sus archivos al arrancar; `Decisions.md` guarda el porqué.
