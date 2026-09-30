@@ -434,3 +434,16 @@ Las dos van con su flag, en piloto.
 **Estado:** **no implementado**. Queda como bloqueante previo el chequeo de solo lectura del mount de la carpeta de Anexos en **producción** (`192.168.1.240`) — si falla, es infraestructura y hay que pedírselo a Germán/Basis antes de escribir código.
 **Huella asumida en TEST:** un `Attachments2` (`AbsoluteEntry 22485`) con 4 archivos de prueba, imborrable por API. Las Actividades tocadas quedaron revertidas a `null`.
 **Contexto:** pedido directo de Líber, con la investigación previa delegada al agente `investigador` (solo lectura) y las pruebas contra TEST corridas por el orquestador, ya con escritura autorizada explícitamente y acotada a TEST.
+
+### 29/09/2026 — Frontend de Promesas de pago: el historial no se duplica, y el cambio visual viaja con el flag
+**Diseño aprobado por Líber antes de construir.** El backend ya deja un evento en la Bitácora al verificar cada promesa, así que el historial aparece solo en la línea de tiempo que ya existe. Por eso el bloque nuevo de Cliente 360 muestra **únicamente las promesas vigentes**: armar además una lista completa habría duplicado la misma información en la misma pantalla. Detalle en `Architecture.md` punto 60.
+
+**Decisión de criterio general — un cambio visual sobre UI ya liberada viaja con el flag que lo motiva.** Para que entrara la tercera pestaña ("Promesa", junto a Gestión y Recordatorio) hacía falta más área táctil en celular y separar el selector segmentado, pero esas reglas tocaban clases que **todo el equipo ya usa en producción**. En vez de descartar la mejora o soltarla sin que nadie la hubiera visto, quedó prefijada con `data-promesas="true"`: con el flag apagado nadie ve nada distinto, y al prenderlo llegan juntas la pestaña nueva y los controles más cómodos, como un solo cambio coherente. El contorno de foco visible quedó afuera del gating por ser accesibilidad pura.
+
+**Lo que encontró la validación independiente:** el test que decía vigilar que una promesa nunca interfiera con la Bandeja no vigilaba eso — habría pasado igual si la promesa filtrara la cola o deshabilitara Aprobar. El límite sí se respetaba por código, pero el test daba confianza falsa. Reescrito y verificado por mutación. También corrigió una hipótesis equivocada del orquestador sobre el manejo de la fecha: el reporte del agente de frontend era correcto y la lectura del diff había sido mía.
+
+**Pendiente explícito:** nadie revisó esto en un navegador todavía. Los 445 tests prueban la lógica, no que se vea bien, y el riesgo está en el celular. **La revisión visual va antes de prender el flag.**
+
+**Dependencia de rollout anotada:** con `promesas` habilitada y `bitacora` en `off`, las promesas se ven en la Bandeja pero no en Cliente 360. Prender primero `bitacora` (hoy ya está en `todos`).
+
+**Aprendizaje operativo:** al correr la suite del frontend sobre el merge dio 890 tests en 92 archivos, el doble exacto. No era el código: el worktree del agente seguía dentro del repo y Vitest levantaba cada test dos veces (está en `.gitignore`, así que git no lo veía, pero Vitest sí). Un worktree de agente que queda sin limpiar infla la cuenta y vuelve indescifrable cualquier test que falle en una sola de las dos copias. Ver `CLAUDE.md`, Notas operativas.
