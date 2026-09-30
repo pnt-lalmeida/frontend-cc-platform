@@ -65,6 +65,9 @@ export interface CandidatoBandeja {
   status_aprobacion: string | null;
   condicion_pago: string | null;
   comentarios: string | null;
+  // Pagador central (informativo): null = la cuenta no tiene. Ver bandeja/pagadores.ts.
+  pagador_central?: string | null;
+  pagador_central_nombre?: string | null;
 }
 
 export interface DecisionResponse {
