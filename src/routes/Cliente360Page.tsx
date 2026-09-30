@@ -595,9 +595,11 @@ export function Cliente360Page() {
                 </div>
 
                 <div>
-                  {/* Orden pedido por Liber 28/09/2026: Cuentas
-                      relacionadas, Cheques pendientes, Antiguedad de
-                      saldos, Comportamiento de pago. */}
+                  {/* Orden pedido por Liber (28/09/2026, actualizado el
+                      30/09/2026): Cuentas relacionadas, Cheques pendientes,
+                      Comportamiento de pago, Antiguedad de saldos.
+                      Antiguedad va ultima a proposito: hoy el equipo la usa
+                      poco. */}
                   {ficha.cuentas_relacionadas.length > 0 && (
                     <div style={{ marginBottom: 20 }}>
                       <p style={{ fontSize: 12, color: "var(--color-muted)", marginBottom: 10, fontWeight: 500 }}>
@@ -659,6 +661,9 @@ export function Cliente360Page() {
                     </div>
                   </div>
 
+                  {habilitada("indicadores_pago") && (
+                    <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
+                  )}
                   {habilitada("antiguedad_saldos") && (
                     <BloqueAntiguedadSaldos
                       filas={estadoCuenta}
@@ -667,9 +672,6 @@ export function Cliente360Page() {
                       error={errorEstadoCuenta}
                       enPiloto={enPiloto("antiguedad_saldos")}
                     />
-                  )}
-                  {habilitada("indicadores_pago") && (
-                    <BloqueComportamientoPago cardCode={ficha.card_code} enPiloto={enPiloto("indicadores_pago")} />
                   )}
                 </div>
               </div>
