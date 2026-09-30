@@ -266,3 +266,25 @@ describe("AppShell — panel de alertas en celular", () => {
     expect(panel.contains(document.activeElement)).toBe(true);
   });
 });
+
+describe("AppShell — entrada de Mi día en el nav", () => {
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    piloto = false;
+    apiFetch.mockReset();
+  });
+
+  it("sin la funcionalidad el nav queda como estaba", () => {
+    renderShell();
+    expect(screen.queryByRole("link", { name: "Mi día" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Cliente 360" })).toBeTruthy();
+  });
+
+  it("con la funcionalidad aparece primero, antes de Cliente 360", () => {
+    featuresHabilitadas.add("mi_dia");
+    renderShell();
+    const enlaces = screen.getAllByRole("link").map((a) => a.textContent);
+    expect(enlaces.slice(0, 3)).toEqual(["Mi día", "Cliente 360", "Bandeja de autorización"]);
+    expect(screen.getByRole("link", { name: "Mi día" }).getAttribute("href")).toBe("/mi-dia");
+  });
+});

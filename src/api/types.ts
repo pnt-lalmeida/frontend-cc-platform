@@ -407,3 +407,68 @@ export interface RegistrarPromesaRequest {
   canal?: string;
   facturas?: string;
 }
+
+// Fase 6 CRM (30/09/2026): "Mi dia". GET /api/mi-dia (feature "mi_dia"). Cada
+// bloque falla por separado: uno que fallo viaja como null (nunca como lista
+// vacia, que se leeria como "no hay nadie que contactar") y su nombre en `errores`.
+export type CanalMiDia = "mail" | "whatsapp" | "manual" | "daniel" | "pagador_central";
+
+export interface ClienteDelDia {
+  card_code: string;
+  nombre: string | null;
+  numero_sn: string | null;
+  // N.º SN consolidado o card_code: la misma clave que usa la Bitacora.
+  clave: string;
+  // Ya normalizada por el backend: "UYU" | "USD" | "EUR".
+  moneda: string;
+  // Ya en la moneda de la cuenta. Nunca se suma entre monedas.
+  saldo: number;
+  // La cuenta tiene residuo en otra moneda (aviso discreto, no alarma).
+  saldo_en_otra_moneda: boolean;
+  // Solo una marca: el vencido es una aproximacion y no viaja como importe.
+  tiene_vencido: boolean;
+  canal: CanalMiDia;
+  // "mensual" = entra por "no gestionado en el mes"; "dia" = por su dia fijo.
+  origen: "dia" | "mensual";
+  // null = no se pudo saber (se muestra todo, sin ocultar a nadie).
+  gestionada_hoy: boolean | null;
+}
+
+export interface ZonaNoReconocida {
+  card_code: string;
+  zona: string | null;
+}
+
+export interface ClientesDelDia {
+  fecha: string;
+  dia: string;
+  es_dia_habil: boolean;
+  gestion_conocida: boolean;
+  total: number;
+  gestionados_hoy: number;
+  pendientes: number;
+  zonas_no_reconocidas: ZonaNoReconocida[];
+  clientes: ClienteDelDia[];
+}
+
+export interface TareaMiDia extends TareaBitacora {
+  numero_sn: string | null;
+  cliente_nombre: string | null;
+  es_mia: boolean;
+}
+
+export interface PromesaMiDia extends PromesaPago {
+  cliente_nombre: string | null;
+}
+
+export interface MiDiaResponse {
+  fecha: string;
+  dia: string;
+  clientes_del_dia: ClientesDelDia | null;
+  tareas: TareaMiDia[] | null;
+  promesas: PromesaMiDia[] | null;
+  alertas: { abiertas: number; no_vistas: number } | null;
+  pedidos_bandeja: { pendientes: number } | null;
+  habilitadas: { promesas: boolean; alertas: boolean };
+  errores: string[];
+}

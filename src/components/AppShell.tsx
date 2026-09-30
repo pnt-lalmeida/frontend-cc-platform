@@ -44,6 +44,11 @@ function AppShellContenido() {
           Pontyn
         </div>
         <nav className="app-header-nav" style={{ display: "flex", gap: 4 }}>
+          {habilitada("mi_dia") && (
+            <NavLink to="/mi-dia" style={navLinkStyle}>
+              Mi día
+            </NavLink>
+          )}
           <NavLink to="/cliente-360" style={navLinkStyle}>
             Cliente 360
           </NavLink>
