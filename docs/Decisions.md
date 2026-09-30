@@ -467,3 +467,21 @@ Las dos van con su flag, en piloto.
 **Lo que la investigación validó contra el negocio, y no solo contra el código:** las cuentas por día con saldo ≠ 0 dan martes 200, miércoles 199, jueves 199 y viernes 187, contra las ~200 filas por hoja de la planilla real del equipo. Cuatro de cinco días coinciden casi exacto, lo que valida a la vez la regla de parseo y el criterio de saldo (se probó `Balance > 0` y empeora el ajuste en 4 de 5 días: el correcto es `<> 0`). **Queda pendiente de contrastar: lunes da 258, un 29% por encima** — no es error de parseo; hay que mirar la hoja real del lunes.
 
 **Anotado para decidir aparte, fuera de la Fase 6:** hay **1.829 cuentas con saldo ≠ 0 cuya zona no es un día ni `MENSUAL`** (principalmente `VENDEDOR`, 1.167, por definición fuera de Cuentas Corrientes; el resto contado y estados como `CLEARING`/`INCOBRABLE`/`ABOGADO`). No justifican un grupo dentro de "Mi día", pero sí un contador de higiene para que se vea que existen.
+
+### 30/09/2026 — Refinamientos del sector: vocabulario de la Bitácora, Comentarios de SAP y pagador central
+Pedidos puntuales sobre lo ya construido, fuera del paquete de CRM liviano. Detalle técnico en `Architecture.md` punto 62. Van **sin flag**: son cambios chicos sobre pantallas ya liberadas, y la regla de flags aplica a funcionalidades grandes.
+
+**1. "Resultado" en vez de "Motivo", con 7 valores nuevos** (pedido de Claudia y Rosina). La lista de 22 valores copiados de la planilla se reemplazó por: Al día, Derivado al vendedor, En gestión de Administración, Gestionado, No contactado, Pago coordinado, Pago realizado — en orden alfabético, también a pedido.
+- **El dato que salió al buscar qué historial se rompía:** ninguno. `crm_eventos` tenía 507 eventos y **los 507 eran automáticos**. Cero gestiones manuales. La Bitácora llevaba días liberada a todo el equipo **sin un solo uso real**. El cambio salió gratis, pero la señal es más importante que el cambio: conviene preguntarle al sector si con este vocabulario ahora sí la usan, porque es el mejor indicador de si la funcionalidad sirve.
+- **El nombre lo eligió el orquestador** (Líber delegó: "lo que te parezca mejor") entre las dos opciones propuestas: "Acción" no encaja con "Al día" ni "No contactado", que no son acciones; "Estado" chocaría con "Situación de la cuenta", que vive en la misma ficha. Si el sector insiste con "Estado", se cambia en una línea — pero conviene plantearles el choque.
+
+**2. Comentarios de la ficha de SAP en Cliente 360**, solo lectura. La sincronización bidireccional quedó **explícitamente fuera de alcance**.
+- **Se consultó producción antes de diseñar, y cambió el diseño.** En TEST el campo lo tenía el 2,7% de las cuentas; en producción lo tiene el **35% de las cuentas con saldo**. Con los números de TEST habría salido un bloque discreto y secundario; con los reales es información que aparece en una de cada tres fichas.
+- **El hallazgo que habría sido un bug muy visible:** SAP guarda los saltos de línea como `\r` solo, y **el 68% de los comentarios son multilínea**. Sin convertirlos, dos de cada tres se verían como un renglón corrido.
+- **Se cambió a propósito algo que pedía el documento del sector:** pedía un estado vacío ("Sin comentarios cargados"); con el dato de uso en la mano se decidió **no dibujar nada** cuando no hay. Dos de cada tres fichas no lo tienen y un recuadro vacío repetido es ruido.
+
+**3. Pagador central en la cola de la Bandeja.** Decisión de Líber sobre el punto sensible: **se le agregan dos columnas de salida a la SQL de detección**, sobre un `LEFT JOIN` que ya existía, aceptando que deje de ser idéntica byte a byte a la de `sap_data_access` — **que no se modifica**. No se toca ninguna condición del `WHERE` ni del `CASE`: qué pedidos se detectan no cambia. Se descartaron las alternativas de resolverlo con una consulta aparte (una más por carga de la Bandeja) y de mostrarlo solo en el detalle (perdía justo lo pedido: verlo de un vistazo en la cola).
+
+**4. `-M`/`-W`: no hubo nada que corregir.** La documentación ya decía lo correcto desde el 25/09 y no había código interpretando los sufijos.
+
+**Pendiente en los tres:** ninguno se revisó en un navegador a ancho de teléfono. El de mayor impacto visual es Comentarios, que en una de cada tres fichas empuja las pestañas ~100px hacia abajo.
