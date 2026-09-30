@@ -447,3 +447,23 @@ Las dos van con su flag, en piloto.
 **Dependencia de rollout anotada:** con `promesas` habilitada y `bitacora` en `off`, las promesas se ven en la Bandeja pero no en Cliente 360. Prender primero `bitacora` (hoy ya está en `todos`).
 
 **Aprendizaje operativo:** al correr la suite del frontend sobre el merge dio 890 tests en 92 archivos, el doble exacto. No era el código: el worktree del agente seguía dentro del repo y Vitest levantaba cada test dos veces (está en `.gitignore`, así que git no lo veía, pero Vitest sí). Un worktree de agente que queda sin limpiar infla la cuenta y vuelve indescifrable cualquier test que falle en una sola de las dos copias. Ver `CLAUDE.md`, Notas operativas.
+
+### 30/09/2026 — "Mi día": qué cuenta como gestionado (y una corrección del orquestador)
+**Corrección primero:** el 29/09 el orquestador afirmó —acá y en `CLAUDE.md`— que "Mi día" ya no tenía ninguna decisión de negocio abierta. Era falso: él mismo había planteado horas antes una pregunta sin responder, y la dio por cerrada al resumir. Queda anotado como recordatorio de que un resumen no cierra una pregunta.
+
+**La decisión pendiente era:** los clientes `MENSUAL-M` no entran a Mi día por día de la semana sino por "no gestionado en el mes" (`Architecture.md` punto 48), pero nunca se definió **qué cuenta como gestionado**. No es un detalle: define qué clientes aparecen cada día en la pantalla principal del equipo. La Bitácora mezcla eventos manuales (alguien llamó, mandó un estado de cuenta) con automáticos (una decisión de la Bandeja, un cambio de situación, la verificación de una promesa).
+
+**Decisión de Líber:** **cuenta solo la gestión manual.** Un evento automático no saca a un cliente de Mi día. El razonamiento: Mi día es la lista de a quién hay que contactar, y que un proceso automático le toque la ficha no significa que alguien haya hablado con el cliente. El riesgo que evita es el peor de los dos — que un cliente desaparezca de la lista sin que nadie lo haya contactado.
+
+**Aplica igual al "gestionado hoy"** que Mi día deriva de la Bitácora para el resto de los clientes, no solo a los `MENSUAL-M`.
+
+### 30/09/2026 — `MENSUAL` sin sufijo: 190 cuentas con deuda que no estaban en ningún lado
+**Hallazgo de la investigación de `U_ZONA` previa a construir "Mi día"** (`Architecture.md` punto 61, que corrige y cuantifica el 48). Existen **391 cuentas con zona `MENSUAL` a secas, 190 de ellas con saldo ≠ 0**, además de las 45 `MENSUAL-M` que sí estaban documentadas. Nadie las había registrado: si "Mi día" se hubiera construido solo con lo documentado, **esas 190 cuentas con deuda no habrían aparecido en ninguna pantalla**.
+
+**Decisión de Líber:** `MENSUAL` = gestión mensual con **canal mail**, y `MENSUAL-M` = mensual manual — la misma regla de sufijos que ya rige a los días de la semana. Entran a "Mi día" por el criterio de "no gestionado en el mes", igual que las `MENSUAL-M`.
+
+**Evidencia que respaldó la lectura:** en HANA TEST (copia de junio 2025) esos valores aparecían con el nombre de la cadena pegado (`MENSUAL MILY`, `MENSUAL CAFITUR`, `MENSUAL DELIBEST`…) y en producción ya están unificados a `MENSUAL` — alguien los limpió.
+
+**Lo que la investigación validó contra el negocio, y no solo contra el código:** las cuentas por día con saldo ≠ 0 dan martes 200, miércoles 199, jueves 199 y viernes 187, contra las ~200 filas por hoja de la planilla real del equipo. Cuatro de cinco días coinciden casi exacto, lo que valida a la vez la regla de parseo y el criterio de saldo (se probó `Balance > 0` y empeora el ajuste en 4 de 5 días: el correcto es `<> 0`). **Queda pendiente de contrastar: lunes da 258, un 29% por encima** — no es error de parseo; hay que mirar la hoja real del lunes.
+
+**Anotado para decidir aparte, fuera de la Fase 6:** hay **1.829 cuentas con saldo ≠ 0 cuya zona no es un día ni `MENSUAL`** (principalmente `VENDEDOR`, 1.167, por definición fuera de Cuentas Corrientes; el resto contado y estados como `CLEARING`/`INCOBRABLE`/`ABOGADO`). No justifican un grupo dentro de "Mi día", pero sí un contador de higiene para que se vea que existen.
