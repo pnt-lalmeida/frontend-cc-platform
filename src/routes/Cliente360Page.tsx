@@ -19,6 +19,7 @@ import { useUsuarioActual } from "../auth/useUsuarioActual";
 import { BitacoraActividad } from "./cliente360/BitacoraActividad";
 import { BloqueAntiguedadSaldos } from "./cliente360/BloqueAntiguedadSaldos";
 import { BloqueComportamientoPago } from "./cliente360/BloqueComportamientoPago";
+import { BloqueComentarios } from "./cliente360/BloqueComentarios";
 import { ControlSituacionCuenta } from "./cliente360/ControlSituacionCuenta";
 import { formatDate, formatDateTime, formatMoney, formatMoneyEntero } from "../design/format";
 import { useAutorizaciones } from "./cliente360/useAutorizaciones";
@@ -522,6 +523,10 @@ export function Cliente360Page() {
                 </div>
               </div>
             )}
+
+            {/* Comentarios de SAP (solo lectura): en el encabezado, visibles en
+                todas las pestañas. key por cliente: al cambiar vuelve recortado. */}
+            <BloqueComentarios key={ficha.card_code} comentarios={ficha.comentarios} />
           </div>
 
           <div className="c360-tabs-row" style={{ display: "flex", gap: 4, marginTop: 24, borderBottom: "1px solid var(--color-line)" }}>

@@ -26,6 +26,9 @@ export interface FichaCliente {
   condicion_pago: string | null;
   suspendido: boolean;
   zona_ctas_ctes: string | null;
+  // Campo "Comentarios" de la ficha SAP, ya normalizado por el backend
+  // (saltos como \n; null = nada que mostrar). Solo lectura.
+  comentarios?: string | null;
   pagador_central: PagadorCentral | null;
   cuentas_relacionadas: FichaCliente[];
 }
