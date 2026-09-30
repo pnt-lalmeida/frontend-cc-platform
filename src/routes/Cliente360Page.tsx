@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { leerClienteDeLaUrl } from "./cliente360/urlCliente";
 import { apiFetch } from "../api/client";
 import type {
   Autorizacion,
@@ -195,7 +196,17 @@ const NOMBRE_DE_MONEDA_ESTADO_CUENTA: Record<string, string> = {
 export function Cliente360Page() {
   const getAccessToken = useAccessToken();
   const { habilitada, enPiloto } = useFeatures();
-  const [cardCodeSeleccionado, setCardCodeSeleccionado] = useState<string | null>(null);
+  // "?cliente=C1-02928" abre la ficha directo en ese cliente, para poder venir
+  // desde Mi dia sin buscarlo a mano (pedido de Liber, 30/09/2026).
+  // Se lee SOLO como valor inicial: sin el parametro la pagina se comporta
+  // igual que antes, y de ahi en mas manda el estado interno como siempre.
+  // A proposito NO se usa useSearchParams: obligaria a montar un Router en
+  // todos los tests que ya renderizan esta pagina suelta, y para leer un valor
+  // inicial una sola vez no hace falta. Sincronizar la URL en cada cambio
+  // (para que ande el boton "atras") es otra decision, mas invasiva.
+  const [cardCodeSeleccionado, setCardCodeSeleccionado] = useState<string | null>(
+    () => leerClienteDeLaUrl(),
+  );
   const [pestañaActiva, setPestañaActiva] = useState<Pestaña>("resumen");
   const usuarioActual = useUsuarioActual();
   // Fase 3 CRM: la pestaña Actividad existe solo con la funcionalidad "bitacora".

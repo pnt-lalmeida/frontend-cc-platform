@@ -267,3 +267,29 @@ describe("Cliente360Page — Comentarios", () => {
     expect(screen.queryByText(/comentarios/i)).toBeNull();
   });
 });
+
+// "?cliente=..." abre la ficha directo en ese cliente, para poder venir desde
+// Mi dia sin buscarlo a mano (Liber, 30/09/2026). Sin el parametro la pagina
+// se comporta exactamente igual que antes: eso lo cubren todos los tests de
+// arriba, que renderizan sin URL y siguen pasando.
+describe("Cliente360Page — abrir un cliente desde la URL", () => {
+  beforeEach(() => {
+    featuresHabilitadas.clear();
+    apiFetch.mockReset();
+    window.history.replaceState({}, "", "/cliente-360");
+  });
+
+  it("con ?cliente arranca con esa ficha abierta, sin pasar por la busqueda", () => {
+    window.history.replaceState({}, "", "/cliente-360?cliente=C1-17453");
+    featuresHabilitadas.add("bitacora");
+
+    render(<Cliente360Page />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Actividad" }));
+    expect(screen.getByTestId("bitacora").textContent).toBe("C1-17453");
+  });
+
+  // No hace falta un test de "sin parametro": los 11 tests de arriba
+  // renderizan sin URL y siguen pasando sin tocarlos, que es la prueba de que
+  // el comportamiento anterior no cambio.
+});
