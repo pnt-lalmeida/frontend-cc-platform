@@ -496,3 +496,12 @@ Pedidos puntuales sobre lo ya construido, fuera del paquete de CRM liviano. Deta
 - `.claude/agents/validador.md`: **si el reporte del frontend no menciona la revisión visual, eso es un hallazgo** y va en el reporte del Validador. No se da por hecho.
 
 **Por qué en los agentes y no solo acá:** es una regla de cómo se trabaja, no una decisión de producto. Los agentes leen sus archivos al arrancar; `Decisions.md` guarda el porqué.
+
+### 01/10/2026 — Centro de alertas y "Mi día" liberados a todo el equipo; campana en cero
+**Decisión de Líber:** `FEATURE_ALERTAS` y `FEATURE_MI_DIA` pasan a `todos`. `FEATURE_CAMBIAR_SUSPENDIDO` **queda en `piloto` hasta nuevo aviso**. `FEATURE_RIESGO_BLOQUEO` sigue en `piloto` con modo `sombra` (junta datos, no lo ve nadie).
+
+**Consecuencia de Mi día a `todos`, que el equipo nota de entrada:** la ruta por defecto pasa a ser `/mi-dia`. Al abrir la app ya no caen en Cliente 360 sino en la agenda del día. Es lo que corresponde para una pantalla de agenda, pero es un cambio visible de la primera pantalla que ven.
+
+**Campana en cero al liberar:** al revisar antes de prender el flag había **88 alertas sin ver**, acumuladas desde el 28/09 durante el piloto, y **todas del tipo `pedido_reabierto`**. Se marcaron como vistas con el usuario `sistema (arranque)`, aplicando el mismo criterio que Líber ya había fijado el 25/09 para la primera corrida: el equipo arranca en cero y ve solo lo que pase de acá en adelante. Quedan en la base con su historial. Se usó `alertas.marcar_todas_vistas`, la función real de la app, no SQL suelto.
+
+**El problema de fondo, anotado para decidir:** las alertas `pedido_reabierto` **no se resuelven solas** — a diferencia de `pedido_bloqueado`, que se auto-resuelve cuando el pedido deja de estar bloqueado (de hecho las 82 de ese tipo estaban todas resueltas). Nada en el código cierra una `pedido_reabierto`: solo se puede a mano. Como además su clave de idempotencia incluye el timestamp de la decisión, reconsiderar dos veces el mismo pedido genera dos alertas. Si nadie las marca, el contador va a volver a crecer y la campana deja de ser una señal: un número grande permanente se ignora. **Opciones a evaluar cuando moleste:** que se auto-resuelvan a los N días, que se resuelvan cuando el pedido se cierra en SAP, o aceptar que son de lectura y marcarlas periódicamente.
