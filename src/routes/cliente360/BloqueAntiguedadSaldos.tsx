@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import type { EstadoCuentaFila, PagadorCentral } from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
 import { formatMoney, formatMoneyEntero } from "../../design/format";
@@ -10,6 +10,11 @@ import { TRAMOS, TRAMOS_MAYOR_61, calcularAntiguedad, type AntiguedadMoneda } fr
 // que la pagina ya carga: no hay fetch propio. La cifra que sigue el equipo es
 // "Más de 61 días": va arriba y grande; los tres tramos que la forman quedan
 // marcados con una barra a la izquierda.
+//
+// Por defecto se ve UNA LINEA POR MONEDA (total + lo que importa: lo de más de
+// 61 días, o lo vencido, o "Al día"), sin enumerar ceros. "Ver detalle" abre las
+// tarjetas con los cinco tramos y "A vencer". Un solo control para todo el
+// bloque, mismo patron que "Ver más" de Comentarios (aria-expanded/aria-controls).
 export function BloqueAntiguedadSaldos({
   filas,
   pagadorCentral,
@@ -25,6 +30,8 @@ export function BloqueAntiguedadSaldos({
   enPiloto: boolean;
   hoy?: string;
 }) {
+  const idDetalle = useId();
+  const [expandido, setExpandido] = useState(false);
   const monedas = useMemo(() => calcularAntiguedad(filas, hoy ?? hoyUruguay()), [filas, hoy]);
 
   let contenido: ReactNode;
@@ -36,19 +43,43 @@ export function BloqueAntiguedadSaldos({
     contenido = <Marco><p style={{ color: "var(--color-muted)", margin: 0 }}>Sin saldos abiertos.</p></Marco>;
   } else {
     contenido = (
-      <div style={{ display: "grid", gap: 10 }}>
-        {monedas.map((m) => (
-          <TarjetaMoneda key={m.moneda ?? "—"} antiguedad={m} />
-        ))}
-        {/* Los tramos se muestran sin centavos: pueden no sumar exacto el total
-            (que se calcula con centavos). El title de cada monto tiene el exacto. */}
-        <p
-          style={{ fontSize: 11.5, color: "#8A9490", margin: 0 }}
-          title="Cada monto muestra el valor exacto al pasar el mouse."
-        >
-          {monedas.length > 1 ? "Cada moneda por separado: nunca se suman. " : ""}
-          Montos redondeados, sin centavos.
-        </p>
+      <div style={{ display: "grid", gap: 6 }}>
+        <div id={idDetalle}>
+          {expandido ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              {monedas.map((m) => (
+                <TarjetaMoneda key={m.moneda ?? "—"} antiguedad={m} />
+              ))}
+              {/* Los tramos se muestran sin centavos: pueden no sumar exacto el total
+                  (que se calcula con centavos). El title de cada monto tiene el exacto. */}
+              <p
+                style={{ fontSize: 11.5, color: "#8A9490", margin: 0 }}
+                title="Cada monto muestra el valor exacto al pasar el mouse."
+              >
+                {monedas.length > 1 ? "Cada moneda por separado: nunca se suman. " : ""}
+                Montos redondeados, sin centavos.
+              </p>
+            </div>
+          ) : (
+            <div style={{ border: "1px solid var(--color-line)", borderRadius: 8, padding: "0 14px" }}>
+              {monedas.map((m, i) => (
+                <LineaMoneda key={m.moneda ?? "—"} antiguedad={m} primera={i === 0} />
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <button
+            type="button"
+            className="c360-comentarios-toggle"
+            style={{ marginTop: 0 }}
+            aria-expanded={expandido}
+            aria-controls={idDetalle}
+            onClick={() => setExpandido((v) => !v)}
+          >
+            {expandido ? "Ver menos" : "Ver detalle por tramos"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -82,6 +113,58 @@ export function BloqueAntiguedadSaldos({
 
 function Marco({ children }: { children: ReactNode }) {
   return <div style={{ border: "1px solid var(--color-line)", borderRadius: 8, padding: "14px 16px" }}>{children}</div>;
+}
+
+// Vista compacta de una moneda. Lo primero que se lee es lo que el equipo sigue:
+// deuda de más de 61 días (riesgo) > vencido > "Al día". Nunca enumera ceros.
+function LineaMoneda({ antiguedad: m, primera }: { antiguedad: AntiguedadMoneda; primera: boolean }) {
+  const clave = m.moneda ?? "sin-moneda";
+  const vencido = Math.round((m.d0_30 + m.d31_60 + m.mayor_61) * 100) / 100;
+
+  let estado: ReactNode;
+  if (m.mayor_61 > 0) {
+    estado = (
+      <span
+        data-testid={`mayor-61-compacto-${clave}`}
+        title={formatMoney(m.mayor_61, m.moneda)}
+        style={{ color: "var(--color-risk)", fontWeight: 600 }}
+      >
+        <span style={{ fontFamily: "var(--font-mono)" }}>{formatMoneyEntero(m.mayor_61, m.moneda)}</span> más de 61 días
+      </span>
+    );
+  } else if (vencido > 0) {
+    estado = (
+      <span title={formatMoney(vencido, m.moneda)} style={{ color: "var(--color-caution)", fontWeight: 600 }}>
+        <span style={{ fontFamily: "var(--font-mono)" }}>{formatMoneyEntero(vencido, m.moneda)}</span> vencido
+      </span>
+    );
+  } else {
+    estado = <span style={{ color: "var(--color-ok)", fontWeight: 600 }}>Al día</span>;
+  }
+
+  return (
+    <div
+      data-testid={`resumen-${clave}`}
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        flexWrap: "wrap",
+        gap: "2px 16px",
+        padding: "10px 0",
+        borderTop: primera ? "none" : "1px solid var(--color-line)",
+        fontSize: 13.5,
+      }}
+    >
+      <span title={formatMoney(m.total, m.moneda)} style={{ whiteSpace: "nowrap" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 500 }}>
+          {formatMoneyEntero(m.total, m.moneda)}
+        </span>{" "}
+        <span style={{ color: "var(--color-muted)" }}>total</span>
+      </span>
+      {estado}
+    </div>
+  );
 }
 
 function TarjetaMoneda({ antiguedad: m }: { antiguedad: AntiguedadMoneda }) {

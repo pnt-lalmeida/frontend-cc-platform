@@ -157,7 +157,7 @@ describe("Cliente360Page — Situación de la cuenta y Antigüedad de saldos", (
     render(<Cliente360Page />);
 
     expect(screen.getByText("Antigüedad de saldos")).toBeTruthy();
-    expect(screen.getByTestId("mayor-61-UYU").textContent).toBe("$ 4.200");
+    expect(screen.getByTestId("mayor-61-compacto-UYU").textContent).toContain("$ 4.200");
     expect(await screen.findByRole("button", { name: /situación: abogados/i })).toBeTruthy();
     await waitFor(() =>
       expect(apiFetch).toHaveBeenCalledWith("/api/clientes/C1-17453/situacion", { token: "token" })
