@@ -532,3 +532,16 @@ Cuando el 29/09 se reemplazaron los 22 valores copiados de la planilla por los 7
 **Al 06/10 hay 578 gestiones manuales**, y se usan los siete valores: Al día (231), Gestionado (229), Pago coordinado (59), Derivado al vendedor (36), Pago realizado (12), En gestión de Administración (9), No contactado (2).
 
 **La lectura:** el vocabulario era el problema, no la funcionalidad. El pedido de Claudia y Rosina no era cosmético — era la razón por la que no la usaban. Vale como criterio para adelante: **cuando una funcionalidad construida no se usa, preguntar al sector antes de construirle encima.**
+
+### 06/10/2026 — Cierre del cambio a S1: copia de respaldo borrada y verificación posterior
+Cierra el `TO DO` de la entrada de hoy sobre `cc-platform-db-respaldo-20261006`: **la copia ya no existe**, se borró el mismo día una vez verificado el cambio. No buscarla.
+
+**Verificación después del borrado, con la base ya en S1:**
+- **3.766 filas en las nueve tablas, idénticas** a las contadas antes de borrar la copia.
+- Escritura contra S1 OK.
+- **Las dos pantallas que habían estado rotas por el bug del `Decimal` funcionan:** `/api/mi-dia` (153 clientes, 57 KB, cero errores) y las promesas de los clientes que sí tienen.
+- En producción responden `health` (200) y, pidiendo autenticación como corresponde, `mi-dia`, `alertas` y `bandeja/candidatos`.
+
+**Un número a vigilar, no un problema:** armar la respuesta completa de "Mi día" tardó **7 segundos** en esa prueba. La mayor parte no es la base sino la consulta pesada de la Bandeja contra HANA (2,3 s por sí sola) más el arranque de conexiones. Si el equipo reporta que la pantalla tarda, es trabajo del `optimizador` y no un límite de S1 — conviene medirlo antes de culpar al tier.
+
+**Nota de método (se repitió dos veces hoy):** al verificar en producción, dos "fallas" fueron en realidad errores de medición propios — un 404 porque inventé la URL de la Bandeja en vez de leerla del código, y antes, en el deploy del frontend, una comparación de hashes de bundle que no podía dar verdadero ni estando todo bien. **Verificar contra algo observable del comportamiento (una ruta leída del código, un texto que solo existe en la versión nueva) y no contra identificadores opacos o rutas supuestas.**
