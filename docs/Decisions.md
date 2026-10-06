@@ -505,3 +505,30 @@ Pedidos puntuales sobre lo ya construido, fuera del paquete de CRM liviano. Deta
 **Campana en cero al liberar:** al revisar antes de prender el flag había **88 alertas sin ver**, acumuladas desde el 28/09 durante el piloto, y **todas del tipo `pedido_reabierto`**. Se marcaron como vistas con el usuario `sistema (arranque)`, aplicando el mismo criterio que Líber ya había fijado el 25/09 para la primera corrida: el equipo arranca en cero y ve solo lo que pase de acá en adelante. Quedan en la base con su historial. Se usó `alertas.marcar_todas_vistas`, la función real de la app, no SQL suelto.
 
 **El problema de fondo, anotado para decidir:** las alertas `pedido_reabierto` **no se resuelven solas** — a diferencia de `pedido_bloqueado`, que se auto-resuelve cuando el pedido deja de estar bloqueado (de hecho las 82 de ese tipo estaban todas resueltas). Nada en el código cierra una `pedido_reabierto`: solo se puede a mano. Como además su clave de idempotencia incluye el timestamp de la decisión, reconsiderar dos veces el mismo pedido genera dos alertas. Si nadie las marca, el contador va a volver a crecer y la campana deja de ser una señal: un número grande permanente se ignora. **Opciones a evaluar cuando moleste:** que se auto-resuelvan a los N días, que se resuelvan cuando el pedido se cierra en SAP, o aceptar que son de lectura y marcarlas periódicamente.
+
+### 06/10/2026 — `cc-platform-db` pasa de serverless a Standard S1; y el estado real de los backups
+**Decisión de Líber.** La base pasó de `GP_S_Gen5` (serverless, 0,5-2 vCores, auto-pausa a los 60 min) a **Standard S1 (20 DTU), sin auto-pausa**, con tamaño máximo 50 GB (el valor anterior, 32 GB, no es válido en Standard — por eso hay que fijarlo explícito en el cambio).
+
+**Por qué, con los números medidos antes de decidir:**
+- **CPU 0,00%** — no es un promedio diario que esconda picos: medido con grano de 15 minutos sobre 2 días (192 muestras, agregación **máximo**), ninguna muestra superó cero. Escritura de log y sesiones, también en cero. Los workers sí registran actividad (1%, en 85 de 192 muestras): la base se usa, pero el trabajo es tan liviano que no mueve la aguja.
+- **30 MB de datos.** Entran enteros en memoria.
+- **La auto-pausa casi no se activaba:** la facturación era prácticamente continua, incluso fines de semana. O sea que se pagaba serverless sin obtener su beneficio.
+
+**El intercambio, explícito:** se pierde el escalado automático hasta 2 vCores ante un pico. Hoy nunca se usa; el día que haga falta, cambiar el tier es un comando y unos segundos de corte. **Dónde se espera que haga falta: la pantalla "Cartera"**, que guardaría un corte semanal de toda la cartera — el primer trabajo de esta plataforma que mueve datos de verdad. Volver a medir cuando se construya.
+
+**Efecto positivo en la experiencia:** S1 no se pausa nunca, así que desaparecen los arranques en frío. Para quien abre "Mi día" a la mañana, eso es la diferencia entre decenas de segundos y una respuesta inmediata.
+
+**Respaldo antes del cambio:** se creó la base `cc-platform-db-respaldo-20261006` (copia a nivel de Azure, verificada tabla por tabla). **Se eligió copia y no export a BACPAC porque el export exige usuario y contraseña de SQL, y esta base se autentica solo con identidad de Azure.** `TO DO`: borrarla cuando haya confianza en el cambio — queda consumiendo.
+
+## Estado real de los backups (verificado, no supuesto)
+- **PITR: 7 días**, con diferencial cada 12 h. Es lo único que hay.
+- **Retención de largo plazo: APAGADA.** Las políticas semanal, mensual y anual están las tres en cero. **Nada sobrevive más allá de 7 días.** Si alguien borra gestiones de la Bitácora o promesas y nadie lo nota en una semana, no hay forma de recuperarlas. Con el equipo ya cargando datos operativos reales (578 gestiones manuales al 06/10), esto es el hueco más grande.
+- **Redundancia del almacenamiento de backups: `Local`**, no geo-redundante. Los backups viven en la misma zona que la base: un problema de zona se lleva a los dos. El valor habitual por defecto es geo-redundante; alguien lo puso en local.
+- **`TO DO`, pendiente de decisión de Líber:** activar retención de largo plazo (una copia semanal retenida algunas semanas o meses es barata y cambia por completo el peor escenario), y evaluar si la redundancia local es aceptable.
+
+### 06/10/2026 — El cambio de vocabulario de la Bitácora funcionó: de 0 a 578 gestiones manuales
+Cuando el 29/09 se reemplazaron los 22 valores copiados de la planilla por los 7 que validaron Claudia y Rosina, `crm_eventos` tenía **507 eventos y los 507 eran automáticos: cero gestiones manuales**, con la Bitácora llevaba días liberada a todo el equipo. Quedó anotado que esa era la señal a vigilar.
+
+**Al 06/10 hay 578 gestiones manuales**, y se usan los siete valores: Al día (231), Gestionado (229), Pago coordinado (59), Derivado al vendedor (36), Pago realizado (12), En gestión de Administración (9), No contactado (2).
+
+**La lectura:** el vocabulario era el problema, no la funcionalidad. El pedido de Claudia y Rosina no era cosmético — era la razón por la que no la usaban. Vale como criterio para adelante: **cuando una funcionalidad construida no se usa, preguntar al sector antes de construirle encima.**
