@@ -545,3 +545,23 @@ Cierra el `TO DO` de la entrada de hoy sobre `cc-platform-db-respaldo-20261006`:
 **Un número a vigilar, no un problema:** armar la respuesta completa de "Mi día" tardó **7 segundos** en esa prueba. La mayor parte no es la base sino la consulta pesada de la Bandeja contra HANA (2,3 s por sí sola) más el arranque de conexiones. Si el equipo reporta que la pantalla tarda, es trabajo del `optimizador` y no un límite de S1 — conviene medirlo antes de culpar al tier.
 
 **Nota de método (se repitió dos veces hoy):** al verificar en producción, dos "fallas" fueron en realidad errores de medición propios — un 404 porque inventé la URL de la Bandeja en vez de leerla del código, y antes, en el deploy del frontend, una comparación de hashes de bundle que no podía dar verdadero ni estando todo bien. **Verificar contra algo observable del comportamiento (una ruta leída del código, un texto que solo existe en la versión nueva) y no contra identificadores opacos o rutas supuestas.**
+
+### 14/10/2026 — Correcciones pedidas por Claudia y Rosina: el contador de Mi día pasó de 297 a 75
+Entrada del delta `docs/deltas/Delta_Clientes360_14oct.md` (ítems 1.1, 1.4 y 2.1, "Entregas A + A2"). Detalle técnico completo en `Architecture.md` punto 63.
+
+**Por qué importaba ahora:** desde el 09/10 el sector tiene menos personal y la gestión diaria la hace mayormente una persona. El contador de Mi día dejó de ser informativo y pasó a ser el plan del día. Claudia lo reportó como *"quedan 107 hoy y realmente son 17"*.
+
+**Decisiones tomadas:**
+- **El filtro de automáticos va en el backend, no en el frontend.** Así la lista y el contador se corrigen juntos, sin tocar el contrato de la API ni los ~100 tests de Mi día del frontend. Un automático al día simplemente no se manda.
+- **Los mensuales se siguen viendo pero no cuentan en el total.** Son trabajo real, pero no del día: esconderlos sería peor que no contarlos.
+- **La consolidación por pagador central se resuelve en la SQL, no en Python.** `consolidacion_de` ya existía pero hace dos llamadas al Service Layer por cliente — inviable para 3.074 filas.
+- **Las cuentas que quedan fuera de Mi día se cuentan y se muestran.** Que estén afuera es correcto; que 1.842 cuentas con saldo desaparecieran en silencio, no. Es deuda que nadie sabía que existía.
+- **La deuda de las tres variantes del `COALESCE` se anota, no se arregla acá.** Arreglarla toca consultas de pantallas que hoy andan bien, y el delta pedía otra cosa. Queda escrita con el caso concreto que la dispara.
+
+**Lo que la auditoría previa cambió del alcance:** cuatro ítems del delta (2.4, 2.5, 2.6 y 2.7) **ya estaban hechos** y no se construyeron. En particular 2.5 **no tenía migración pendiente**: la Bitácora nunca usó `card_code` como clave.
+
+**Dos preguntas abiertas para el sector, ninguna bloqueante:**
+1. **¿Los mensuales deben verse todos los días?** Con los automáticos al día afuera, los 150 mensuales pasaron a ser el grupo dominante de la pantalla. Es comportamiento previo, pero recién ahora queda a la vista.
+2. **"Otra zona" son 638 cuentas con saldo que nadie ve.** A diferencia de los otros cinco motivos, ése no se explica solo. ¿Hay ahí trabajo real perdiéndose?
+
+**Nota de método, otra vez sobre medición propia:** di por anómalo que el grupo `18043` no apareciera en Mi día, buscándolo en el nivel equivocado del JSON de respuesta. Estaba, en una sola fila y correcto. **Antes de reportar una anomalía, confirmar que se está mirando donde el dato efectivamente vive.** Es la tercera vez en pocos días que una "falla" resultó ser un error de medición y no del código (ver 06/10).
