@@ -610,6 +610,59 @@ describe("MiDiaPage: pie", () => {
   });
 });
 
+describe("MiDiaPage: contador y cuentas que no se gestionan desde acá", () => {
+  const MOTIVOS = [
+    { motivo: "vendedor", etiqueta: "Las gestiona el vendedor", cantidad: 1132 },
+    { motivo: "otra_zona", etiqueta: "Otra zona", cantidad: 638 },
+  ];
+
+  it("el contador no cuenta a los mensuales (cuenta_en_total en false)", async () => {
+    const lista = [
+      cliente({ card_code: "C1-1", numero_sn: "1" }),
+      cliente({ card_code: "C1-2", numero_sn: "2" }),
+      cliente({ card_code: "C1-3", numero_sn: "3", origen: "mensual", cuenta_en_total: false }),
+      cliente({ card_code: "C1-4", numero_sn: "4", origen: "mensual", cuenta_en_total: false }),
+    ];
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia(lista) }));
+    montar();
+    await screen.findByText("Te quedan 2 de 2");
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuemax")).toBe("2");
+  });
+
+  it("el pie desglosa por motivo las cuentas que no se gestionan desde acá", async () => {
+    obtener.mockResolvedValue(
+      respuesta({
+        clientes_del_dia: clientesDelDia(LISTA_BASE, { cuentas_fuera_de_lista: { total: 1770, por_motivo: MOTIVOS } }),
+      })
+    );
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    const resumen = screen.getByText(/1.770 cuentas con saldo que no se gestionan desde acá/);
+    const detalle = resumen.closest("details") as HTMLElement;
+    expect(detalle.hasAttribute("open")).toBe(false);
+    expect(within(detalle).getByText("Las gestiona el vendedor")).toBeTruthy();
+    expect(within(detalle).getByText("1.132")).toBeTruthy();
+    expect(within(detalle).getByText("Otra zona")).toBeTruthy();
+  });
+
+  it("con total 0 o sin el bloque, el pie no muestra nada de esto", async () => {
+    obtener.mockResolvedValue(
+      respuesta({ clientes_del_dia: clientesDelDia(LISTA_BASE, { cuentas_fuera_de_lista: { total: 0, por_motivo: [] } }) })
+    );
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    expect(screen.queryByText(/no se gestionan desde acá/)).toBeNull();
+  });
+
+  it("si todo lo de hoy son mensuales, se listan igual en vez de decir que no hay nadie", async () => {
+    const lista = [cliente({ card_code: "C1-3", numero_sn: "3", origen: "mensual", cuenta_en_total: false })];
+    obtener.mockResolvedValue(respuesta({ clientes_del_dia: clientesDelDia(lista) }));
+    montar();
+    expect(await screen.findByText(/Dulces del Sur/)).toBeTruthy();
+    expect(screen.queryByText("Hoy no hay clientes de seguimiento.")).toBeNull();
+  });
+});
+
 /* ------------------------------------------------ mejoras de usabilidad 2 */
 
 function cuenta(cardCode: string, moneda: string, saldo: number, extra: object = {}) {

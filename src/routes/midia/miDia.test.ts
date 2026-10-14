@@ -130,6 +130,36 @@ describe("armarVista: progreso y hechos", () => {
     expect(v.quedan).toBe(2);
   });
 
+  it("los clientes con cuenta_en_total en false se listan pero no entran a total ni a quedan", () => {
+    const con = [
+      cliente({ card_code: "C1-1", numero_sn: "1" }),
+      cliente({ card_code: "C1-2", numero_sn: "2", gestionada_hoy: true }),
+      cliente({ card_code: "C1-3", numero_sn: "3", origen: "mensual", cuenta_en_total: false }),
+      cliente({ card_code: "C1-4", numero_sn: "4", origen: "mensual", cuenta_en_total: false, gestionada_hoy: true }),
+    ];
+    const v = armarVista(con, { recienHechos: SIN_RECIEN, soloVencido: false });
+    expect(v.total).toBe(2);
+    expect(v.quedan).toBe(1);
+    expect(v.hechosEnTotal).toBe(1);
+    expect(v.listados).toBe(4);
+    expect(v.hechosLista.map((c) => c.card_code)).toEqual(["C1-2", "C1-4"]);
+    expect(v.grupos.flatMap((g) => g.filas).map((f) => f.cliente.card_code)).toContain("C1-3");
+  });
+
+  it("un mensual recién gestionado en esta sesión no baja 'quedan'", () => {
+    const con = [
+      cliente({ card_code: "C1-1", numero_sn: "1" }),
+      cliente({ card_code: "C1-3", numero_sn: "3", origen: "mensual", cuenta_en_total: false }),
+    ];
+    const v = armarVista(con, { recienHechos: new Set(["C1-3"]), soloVencido: false });
+    expect([v.total, v.quedan]).toEqual([1, 1]);
+  });
+
+  it("sin el campo (contrato viejo) la fila cuenta en el total", () => {
+    const v = armarVista(lista, { recienHechos: SIN_RECIEN, soloVencido: false });
+    expect(v.total).toBe(4);
+  });
+
   it("los hechos al cargar van a 'Hechos hoy' y no a los grupos", () => {
     const v = armarVista(lista, { recienHechos: SIN_RECIEN, soloVencido: false });
     expect(v.hechosLista.map((c) => c.card_code)).toEqual(["C1-2", "C1-4"]);

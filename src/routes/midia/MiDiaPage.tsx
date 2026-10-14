@@ -234,10 +234,10 @@ function Encabezado({
                 aria-label="Progreso de hoy"
                 aria-valuemin={0}
                 aria-valuemax={vista.total}
-                aria-valuenow={vista.hechos}
+                aria-valuenow={vista.hechosEnTotal}
                 className="midia-barra"
               >
-                <div className="midia-barra-relleno" style={{ width: `${(vista.hechos / vista.total) * 100}%` }} />
+                <div className="midia-barra-relleno" style={{ width: `${(vista.hechosEnTotal / vista.total) * 100}%` }} />
               </div>
             </>
           ) : (
@@ -332,7 +332,7 @@ function SeccionClientes({
   if (clientes === null) {
     return <ErrorBloque texto="No se pudo cargar la lista de clientes de hoy." onReintentar={onReintentar} />;
   }
-  if (!vista || vista.total === 0) {
+  if (!vista || vista.listados === 0) {
     return <p className="midia-vacio">Hoy no hay clientes de seguimiento.</p>;
   }
 
@@ -385,7 +385,7 @@ function SeccionClientes({
       {/* Sin role="status": ya hay una region viva (la de avisos) y esta es
           solo el conteo, que se anuncia con cortesia. */}
       <p className="midia-conteo" aria-live="polite">
-        {buscando ? `${vista.coinciden} de ${vista.total} clientes` : ""}
+        {buscando ? `${vista.coinciden} de ${vista.listados} clientes` : ""}
       </p>
 
       {buscando && vista.coinciden === 0 && <p className="midia-vacio">Ningún cliente coincide con «{textoBusqueda}».</p>}
@@ -459,10 +459,13 @@ function SeccionClientes({
 
 /* -------------------------------------------------------------------- pie */
 
+const NUMERO = new Intl.NumberFormat("es-UY");
+
 function Pie({ datos, clientes }: { datos: MiDiaResponse; clientes: ClientesDelDia | null }) {
   const pedidos = datos.pedidos_bandeja;
   const alertas = datos.alertas;
   const zonas = clientes?.zonas_no_reconocidas ?? [];
+  const fuera = clientes?.cuentas_fuera_de_lista;
   const lineas: JSX.Element[] = [];
 
   if (pedidos === null) {
@@ -495,7 +498,8 @@ function Pie({ datos, clientes }: { datos: MiDiaResponse; clientes: ClientesDelD
     }
   }
 
-  if (lineas.length === 0 && zonas.length === 0) return null;
+  const hayFuera = !!fuera && fuera.total > 0;
+  if (lineas.length === 0 && zonas.length === 0 && !hayFuera) return null;
   return (
     <footer className="midia-pie">
       {lineas.length > 0 && <ul className="midia-lista-simple midia-pie-lista">{lineas}</ul>}
@@ -511,6 +515,24 @@ function Pie({ datos, clientes }: { datos: MiDiaResponse; clientes: ClientesDelD
               <li key={z.card_code}>
                 <span className="midia-mono">{z.card_code}</span>
                 <span className="midia-muted"> · zona: {z.zona ?? "(vacía)"}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {fuera && hayFuera && (
+        <details className="midia-detalle">
+          <summary>
+            {fuera.total === 1
+              ? "1 cuenta con saldo que no se gestiona desde acá"
+              : `${NUMERO.format(fuera.total)} cuentas con saldo que no se gestionan desde acá`}
+          </summary>
+          <ul className="midia-lista-simple">
+            {fuera.por_motivo.map((m) => (
+              <li key={m.motivo}>
+                <span>{m.etiqueta}</span>
+                <span className="midia-muted"> · </span>
+                <span className="midia-mono">{NUMERO.format(m.cantidad)}</span>
               </li>
             ))}
           </ul>

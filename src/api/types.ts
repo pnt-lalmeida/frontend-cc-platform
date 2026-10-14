@@ -447,6 +447,22 @@ export interface ClienteDelDia {
   origen: "dia" | "mensual";
   // null = no se pudo saber (se muestra todo, sin ocultar a nadie).
   gestionada_hoy: boolean | null;
+  // false = se lista (mensuales) pero no cuenta en el total ni en "quedan".
+  // Opcional: si falta (contrato viejo) se trata como true.
+  cuenta_en_total?: boolean;
+}
+
+export interface MotivoFueraDeLista {
+  motivo: string;
+  // Ya viene lista para mostrar: no derivarla de `motivo`.
+  etiqueta: string;
+  cantidad: number;
+}
+
+// Cuentas con saldo que el backend deja fuera de Mi dia a proposito.
+export interface CuentasFueraDeLista {
+  total: number;
+  por_motivo: MotivoFueraDeLista[];
 }
 
 export interface ZonaNoReconocida {
@@ -463,6 +479,10 @@ export interface ClientesDelDia {
   gestionados_hoy: number;
   pendientes: number;
   zonas_no_reconocidas: ZonaNoReconocida[];
+  // Filas mensuales (listadas, fuera del total) y automaticos al dia que ya no se mandan.
+  mensuales?: number;
+  automaticos_al_dia_omitidos?: number;
+  cuentas_fuera_de_lista?: CuentasFueraDeLista;
   clientes: ClienteDelDia[];
 }
 

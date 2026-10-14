@@ -125,9 +125,15 @@ export interface GrupoVista {
 }
 
 export interface VistaClientes {
+  // Solo los clientes que cuentan en el total (los mensuales no).
   total: number;
+  // Todos los gestionados, cuenten o no: es lo que lista "Hechos hoy".
   hechos: number;
+  // Gestionados que cuentan en el total: lo que mueve la barra de progreso.
+  hechosEnTotal: number;
   quedan: number;
+  // Filas listadas (con mensuales): lo que hay para ver, aunque no sume al total.
+  listados: number;
   // Filas que dejo la busqueda (grupos + hechos), o null si no se busca. El
   // progreso (total/hechos/quedan) nunca depende de la busqueda.
   coinciden: number | null;
@@ -150,11 +156,19 @@ export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencid
   const hechosLista: ClienteDelDia[] = [];
   const porGrupo = new Map<ClaveGrupo, { pendientes: number; filas: FilaVista[] }>();
   let hechos = 0;
+  let total = 0;
+  let hechosEnTotal = 0;
 
   for (const cliente of ordenados) {
     const reciente = recienHechos.has(cliente.card_code);
     const hecho = cliente.gestionada_hoy === true;
-    if (hecho || reciente) hechos += 1;
+    // Si el campo no viene (contrato viejo) la fila cuenta: nunca se pierde del conteo.
+    const cuenta = cliente.cuenta_en_total !== false;
+    if (cuenta) total += 1;
+    if (hecho || reciente) {
+      hechos += 1;
+      if (cuenta) hechosEnTotal += 1;
+    }
     if (hecho && !reciente) {
       if (!buscando || coincide(cliente, palabras)) {
         hechosLista.push(cliente);
@@ -177,7 +191,7 @@ export function armarVista(clientes: ClienteDelDia[], { recienHechos, soloVencid
     return grupo && grupo.filas.length > 0 ? [{ clave, titulo, pendientes: grupo.pendientes, filas: grupo.filas }] : [];
   });
 
-  return { total: clientes.length, hechos, quedan: clientes.length - hechos, coinciden: buscando ? coinciden : null, grupos, hechosLista };
+  return { total, hechos, hechosEnTotal, quedan: total - hechosEnTotal, listados: clientes.length, coinciden: buscando ? coinciden : null, grupos, hechosLista };
 }
 
 function plural(n: number, singular: string, pluralTexto: string): string {
