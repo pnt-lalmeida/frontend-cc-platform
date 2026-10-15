@@ -347,10 +347,18 @@ export function validarRecordatorio(form: FormRecordatorio, hoy: string): Errore
   if (largo === 0) errores.descripcion = "Escribí qué hay que hacer.";
   else if (largo > MAX_DESCRIPCION)
     errores.descripcion = `La descripción puede tener hasta ${MAX_DESCRIPCION} caracteres (tiene ${largo}).`;
-  if (!form.fecha_objetivo) errores.fecha_objetivo = "Elegí una fecha.";
-  else if (!esFechaValida(form.fecha_objetivo)) errores.fecha_objetivo = "La fecha no es válida.";
-  else if (form.fecha_objetivo < hoy) errores.fecha_objetivo = "La fecha no puede ser anterior a hoy.";
+  const errorFecha = validarFechaNoAnterior(form.fecha_objetivo, hoy);
+  if (errorFecha) errores.fecha_objetivo = errorFecha;
   return errores;
+}
+
+// Fecha obligatoria, valida y no anterior a hoy. Compartida por el
+// recordatorio y la fecha acordada de "Pago coordinado".
+export function validarFechaNoAnterior(fecha: string, hoy: string): string | null {
+  if (!fecha) return "Elegí una fecha.";
+  if (!esFechaValida(fecha)) return "La fecha no es válida.";
+  if (fecha < hoy) return "La fecha no puede ser anterior a hoy.";
+  return null;
 }
 
 export function hayErrores<T>(errores: Errores<T>): boolean {

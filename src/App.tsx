@@ -4,6 +4,7 @@ import { RequireAuth } from "./auth/RequireAuth";
 import { Cliente360Page } from "./routes/Cliente360Page";
 import { BandejaPage } from "./routes/BandejaPage";
 import { RutaInicial, RutaMiDia } from "./routes/midia/rutas";
+import { RutaCobranza } from "./routes/cobranza/rutas";
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
             <Route path="mi-dia" element={<RutaMiDia />} />
             <Route path="cliente-360" element={<Cliente360Page />} />
             <Route path="bandeja" element={<BandejaPage />} />
+            <Route path="cobranza" element={<RutaCobranza />} />
           </Route>
         </Routes>
       </RequireAuth>

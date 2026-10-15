@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { ClientesDelDia, MiDiaResponse } from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
 import { useFeatures } from "../../features/FeaturesContext";
+import { sumarCobranzaAlRequest, type FormCobranza } from "../cliente360/pagoCoordinado";
 import { urlDeCliente } from "../cliente360/urlCliente";
 import { FilaMiDia } from "./FilaMiDia";
 import {
@@ -49,6 +50,8 @@ export function MiDiaPage() {
   }, [recargar, reiniciar]);
 
   const puedeRegistrar = habilitada("bitacora");
+  // Entrega 2: sin cobranza_programada Para hoy no cambia.
+  const conCobranzas = habilitada("cobranza_programada");
   const clientesDelDia = datos?.clientes_del_dia ?? null;
 
   const vista = useMemo(
@@ -59,13 +62,17 @@ export function MiDiaPage() {
     [clientesDelDia, registro.recienHechos, soloVencido, busqueda]
   );
   const paraHoy = useMemo(
-    () => (datos ? armarParaHoy(datos.tareas ?? [], datos.promesas ?? [], datos.fecha) : null),
-    [datos]
+    () =>
+      datos
+        ? armarParaHoy(datos.tareas ?? [], datos.promesas ?? [], datos.fecha, conCobranzas ? (datos.cobranzas ?? []) : [])
+        : null,
+    [datos, conCobranzas]
   );
 
-  async function registrar(cardCode: string, resultado: string, nota: string): Promise<boolean> {
+  async function registrar(cardCode: string, resultado: string, nota: string, cobranza?: FormCobranza): Promise<boolean> {
     const cliente = clientesDelDia?.clientes.find((c) => c.card_code === cardCode);
-    const ok = await registro.registrar(cardCode, { resultado, ...(nota ? { nota } : {}) });
+    const gestion = { resultado, ...(nota ? { nota } : {}) };
+    const ok = await registro.registrar(cardCode, cobranza ? sumarCobranzaAlRequest(gestion, cobranza) : gestion);
     if (ok && cliente) {
       const nombre = nombreCliente(cliente);
       setAviso(
@@ -126,8 +133,8 @@ export function MiDiaPage() {
           />
           {error && <ErrorBloque texto={error} onReintentar={() => void actualizar()} compacto />}
 
-          {paraHoy && (paraHoy.hayAlgo || datos.tareas === null || promesasFallaron(datos)) && (
-            <SeccionParaHoy datos={datos} paraHoy={paraHoy} />
+          {paraHoy && (paraHoy.hayAlgo || datos.tareas === null || promesasFallaron(datos) || cobranzasFallaron(datos, conCobranzas)) && (
+            <SeccionParaHoy datos={datos} paraHoy={paraHoy} conCobranzas={conCobranzas} />
           )}
 
           <SeccionClientes
@@ -155,6 +162,7 @@ export function MiDiaPage() {
                 }}
                 onCerrar={() => setFormAbierto(null)}
                 onRegistrar={registrar}
+                conCobranza={conCobranzas}
               />
             )}
           />
@@ -168,6 +176,12 @@ export function MiDiaPage() {
 
 function promesasFallaron(datos: MiDiaResponse): boolean {
   return datos.promesas === null && datos.habilitadas.promesas;
+}
+
+// Entrega 2: la clave viene null solo si el bloque fallo en el backend (con el
+// flag prendido); sin flag no viene, y no es un fallo.
+function cobranzasFallaron(datos: MiDiaResponse, conCobranzas: boolean): boolean {
+  return conCobranzas && datos.cobranzas === null;
 }
 
 function ErrorBloque({ texto, onReintentar, compacto }: { texto: string; onReintentar: () => void; compacto?: boolean }) {
@@ -254,7 +268,7 @@ function Encabezado({
 
 /* ------------------------------------------------------------- para hoy */
 
-function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: ParaHoy }) {
+function SeccionParaHoy({ datos, paraHoy, conCobranzas }: { datos: MiDiaResponse; paraHoy: ParaHoy; conCobranzas: boolean }) {
   const otros = paraHoy.recordatoriosDeOtros;
   return (
     <section aria-labelledby="midia-para-hoy" className="midia-para-hoy">
@@ -271,6 +285,14 @@ function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: Par
             <ClienteDeLinea numero={p.numero} cardCode={p.cardCode} nombre={p.cliente} />
           </li>
         ))}
+        {paraHoy.cobranzas.map((c) => (
+          <li key={`c${c.id}`}>
+            <span>Cobranza coordinada: </span>
+            <strong>{c.cliente}</strong>
+            {c.horario && <span className="midia-muted"> · {c.horario}</span>}
+            <ClienteDeLinea numero={c.numero} cardCode={c.cardCode} nombre={c.cliente} />
+          </li>
+        ))}
         {paraHoy.recordatoriosMios.map((t) => (
           <li key={`t${t.id}`}>
             <span className={t.vencido ? "midia-vencido-texto" : undefined}>
@@ -285,6 +307,9 @@ function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: Par
       </ul>
       {datos.tareas === null && <p className="midia-error midia-linea">No se pudieron cargar los recordatorios.</p>}
       {promesasFallaron(datos) && <p className="midia-error midia-linea">No se pudieron cargar las promesas.</p>}
+      {cobranzasFallaron(datos, conCobranzas) && (
+        <p className="midia-error midia-linea">No se pudieron cargar las cobranzas coordinadas.</p>
+      )}
       {otros.length > 0 && (
         <details className="midia-detalle">
           <summary>

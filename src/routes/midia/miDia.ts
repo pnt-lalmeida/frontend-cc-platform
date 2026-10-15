@@ -1,4 +1,4 @@
-import type { ClienteDelDia, PromesaMiDia, TareaMiDia } from "../../api/types";
+import type { ClienteDelDia, CobranzaDeMiDia, PromesaMiDia, TareaMiDia } from "../../api/types";
 import { formatMoneyEntero } from "../../design/format";
 
 // Fase 6 CRM (30/09/2026): logica pura de "Mi dia". Es una lista de trabajo:
@@ -224,8 +224,18 @@ export interface ItemRecordatorio {
   cardCode: string | null;
 }
 
+export interface ItemCobranza {
+  id: number;
+  cliente: string;
+  horario: string | null;
+  numero: string | null;
+  cardCode: string | null;
+}
+
 export interface ParaHoy {
   promesas: ItemPromesa[];
+  // Entrega 2: vacio salvo con cobranza_programada.
+  cobranzas: ItemCobranza[];
   recordatoriosMios: ItemRecordatorio[];
   recordatoriosDeOtros: ItemRecordatorio[];
   hayAlgo: boolean;
@@ -256,7 +266,12 @@ function recordatorio(tarea: TareaMiDia, hoy: string): ItemRecordatorio {
 // Lo que pesa mas que el barrido de rutina: promesas que vencen y recordatorios
 // vencidos o de hoy. Los de otras personas no ensucian la lista de cada uno:
 // van aparte (un supervisor igual los ve).
-export function armarParaHoy(tareas: TareaMiDia[], promesas: PromesaMiDia[], hoy: string): ParaHoy {
+export function armarParaHoy(
+  tareas: TareaMiDia[],
+  promesas: PromesaMiDia[],
+  hoy: string,
+  cobranzas: CobranzaDeMiDia[] = []
+): ParaHoy {
   const ordenadas = [...tareas]
     .filter((t) => t.estado === "pendiente")
     .sort((a, b) => a.fecha_objetivo.localeCompare(b.fecha_objetivo) || a.id - b.id);
@@ -270,10 +285,18 @@ export function armarParaHoy(tareas: TareaMiDia[], promesas: PromesaMiDia[], hoy
     numero: p.numero_sn || p.card_code || null,
     cardCode: p.card_code || null,
   }));
+  const itemsCobranza = cobranzas.map<ItemCobranza>((c) => ({
+    id: c.id,
+    cliente: c.cliente_nombre?.trim() || c.card_code || "",
+    horario: c.horario?.trim() || null,
+    numero: c.numero_sn || c.card_code || null,
+    cardCode: c.card_code || null,
+  }));
   return {
     promesas: itemsPromesa,
+    cobranzas: itemsCobranza,
     recordatoriosMios: mios,
     recordatoriosDeOtros: deOtros,
-    hayAlgo: itemsPromesa.length + mios.length + deOtros.length > 0,
+    hayAlgo: itemsPromesa.length + itemsCobranza.length + mios.length + deOtros.length > 0,
   };
 }

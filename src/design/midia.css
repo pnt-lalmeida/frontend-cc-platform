@@ -371,6 +371,12 @@
 .midia-campo-nota {
   flex: 1 1 220px;
 }
+.midia-campo-cobranza {
+  flex: 0 1 160px;
+}
+.midia-campo-moneda {
+  flex: 0 0 92px;
+}
 .midia-etiqueta {
   font-size: 12px;
   font-weight: 500;
@@ -562,6 +568,16 @@
   .midia-campo,
   .midia-campo-nota {
     flex: 1 1 100%;
+  }
+  /* Pago coordinado: fecha y horario a lo ancho; importe y moneda en una linea. */
+  .midia-campo-cobranza {
+    flex: 1 1 100%;
+  }
+  .midia-campo-cobranza:has(input[inputmode="decimal"]) {
+    flex: 1 1 55%;
+  }
+  .midia-campo-moneda {
+    flex: 1 1 35%;
   }
   .midia-form {
     margin: 8px -12px -10px;

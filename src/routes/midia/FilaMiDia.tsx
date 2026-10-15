@@ -1,7 +1,16 @@
 import { Fragment, useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import type { ClienteDelDia } from "../../api/types";
-import { MAX_NOTA } from "../cliente360/bitacora";
+import { MAX_NOTA, hayErrores, type Errores } from "../cliente360/bitacora";
+import {
+  COBRANZA_VACIA,
+  MAX_HORARIO,
+  MONEDAS_COBRANZA,
+  esPagoCoordinado,
+  validarCobranza,
+  type FormCobranza,
+} from "../cliente360/pagoCoordinado";
+import { hoyUruguay } from "../../utils/fechas";
 import { urlDeCliente } from "../cliente360/urlCliente";
 import { importesDeCliente, nombreCliente } from "./miDia";
 
@@ -32,7 +41,9 @@ interface PropsFila {
   resultados: EstadoResultadosFila;
   onAbrir: (cardCode: string) => void;
   onCerrar: () => void;
-  onRegistrar: (cardCode: string, resultado: string, nota: string) => Promise<boolean>;
+  onRegistrar: (cardCode: string, resultado: string, nota: string, cobranza?: FormCobranza) => Promise<boolean>;
+  // Entrega 2: con cobranza_programada, "Pago coordinado" pide la fecha acordada.
+  conCobranza?: boolean;
 }
 
 export function FilaMiDia({
@@ -47,6 +58,7 @@ export function FilaMiDia({
   onAbrir,
   onCerrar,
   onRegistrar,
+  conCobranza = false,
 }: PropsFila) {
   const nombre = nombreCliente(cliente);
   const botonRef = useRef<HTMLButtonElement>(null);
@@ -62,8 +74,8 @@ export function FilaMiDia({
     botonRef.current?.focus();
   }
 
-  async function registrar(resultado: string, nota: string) {
-    const ok = await onRegistrar(cliente.card_code, resultado, nota);
+  async function registrar(resultado: string, nota: string, cobranza?: FormCobranza) {
+    const ok = await onRegistrar(cliente.card_code, resultado, nota, cobranza);
     // El formulario desaparece: a donde va el foco lo decide la pantalla
     // (la siguiente fila pendiente), porque depende de toda la lista.
     if (ok) onCerrar();
@@ -125,6 +137,7 @@ export function FilaMiDia({
           enviando={enviando}
           error={error}
           resultados={resultados}
+          conCobranza={conCobranza}
           onCancelar={cerrar}
           onGuardar={registrar}
         />
@@ -139,6 +152,7 @@ function FormularioRegistro({
   enviando,
   error,
   resultados,
+  conCobranza,
   onCancelar,
   onGuardar,
 }: {
@@ -147,12 +161,17 @@ function FormularioRegistro({
   enviando: boolean;
   error: string | null;
   resultados: EstadoResultadosFila;
+  conCobranza: boolean;
   onCancelar: () => void;
-  onGuardar: (resultado: string, nota: string) => Promise<void>;
+  onGuardar: (resultado: string, nota: string, cobranza?: FormCobranza) => Promise<void>;
 }) {
   const [resultado, setResultado] = useState("");
   const [nota, setNota] = useState("");
   const [errorResultado, setErrorResultado] = useState<string | null>(null);
+  const [cobranza, setCobranza] = useState<FormCobranza>(COBRANZA_VACIA);
+  const [erroresCobranza, setErroresCobranza] = useState<Errores<FormCobranza>>({});
+  const conFecha = conCobranza && esPagoCoordinado(resultado);
+  const fechaRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   const idError = useId();
   const { lista, cargar } = resultados;
@@ -176,7 +195,21 @@ function FormularioRegistro({
       selectRef.current?.focus();
       return;
     }
-    void onGuardar(resultado, nota.trim());
+    if (conFecha) {
+      const nuevos = validarCobranza(cobranza, hoyUruguay());
+      setErroresCobranza(nuevos);
+      if (hayErrores(nuevos)) {
+        // El foco va al primer campo con error (la fecha es el que casi siempre falta).
+        if (nuevos.fecha_cobranza) fechaRef.current?.focus();
+        return;
+      }
+    }
+    void onGuardar(resultado, nota.trim(), conFecha ? cobranza : undefined);
+  }
+
+  function cambiarCobranza(cambio: Partial<FormCobranza>) {
+    setCobranza({ ...cobranza, ...cambio });
+    setErroresCobranza({ ...erroresCobranza, ...Object.fromEntries(Object.keys(cambio).map((k) => [k, undefined])) });
   }
 
   function alTeclear(e: KeyboardEvent) {
@@ -221,6 +254,16 @@ function FormularioRegistro({
                 </p>
               )}
             </div>
+            {conFecha && (
+              <CamposCobranza
+                id={idError}
+                form={cobranza}
+                errores={erroresCobranza}
+                deshabilitado={enviando}
+                fechaRef={fechaRef}
+                onCambio={cambiarCobranza}
+              />
+            )}
             <div className="midia-campo midia-campo-nota">
               <label htmlFor={`${idError}-nota`} className="midia-etiqueta">
                 Nota (opcional)
@@ -263,5 +306,109 @@ function FormularioRegistro({
         </p>
       )}
     </div>
+  );
+}
+
+// Entrega 2: fecha acordada del Pago coordinado, con horario e importe
+// opcionales. Compacto: la fecha y el horario comparten linea, el importe y
+// la moneda tambien; en celular cada campo ocupa el ancho.
+function CamposCobranza({
+  id,
+  form,
+  errores,
+  deshabilitado,
+  fechaRef,
+  onCambio,
+}: {
+  id: string;
+  form: FormCobranza;
+  errores: Errores<FormCobranza>;
+  deshabilitado: boolean;
+  fechaRef: React.RefObject<HTMLInputElement>;
+  onCambio: (cambio: Partial<FormCobranza>) => void;
+}) {
+  const campo = (clave: keyof FormCobranza) => ({
+    "aria-invalid": errores[clave] ? (true as const) : undefined,
+    "aria-describedby": errores[clave] ? `${id}-${clave}-error` : undefined,
+    disabled: deshabilitado,
+  });
+  const error = (clave: keyof FormCobranza) =>
+    errores[clave] ? (
+      <p id={`${id}-${clave}-error`} className="midia-error">
+        {errores[clave]}
+      </p>
+    ) : null;
+  return (
+    <>
+      <div className="midia-campo midia-campo-cobranza">
+        <label htmlFor={`${id}-fecha`} className="midia-etiqueta">
+          Fecha acordada
+        </label>
+        <input
+          ref={fechaRef}
+          id={`${id}-fecha`}
+          type="date"
+          className="midia-control"
+          value={form.fecha_cobranza}
+          min={hoyUruguay()}
+          onChange={(e) => onCambio({ fecha_cobranza: e.target.value })}
+          {...campo("fecha_cobranza")}
+        />
+        {error("fecha_cobranza")}
+      </div>
+      <div className="midia-campo midia-campo-cobranza">
+        <label htmlFor={`${id}-horario`} className="midia-etiqueta">
+          Horario (opcional)
+        </label>
+        <input
+          id={`${id}-horario`}
+          type="text"
+          className="midia-control"
+          autoComplete="off"
+          value={form.horario}
+          maxLength={MAX_HORARIO + 20}
+          placeholder="Ej: 14 a 16 h"
+          onChange={(e) => onCambio({ horario: e.target.value })}
+          {...campo("horario")}
+        />
+        {error("horario")}
+      </div>
+      <div className="midia-campo midia-campo-cobranza">
+        <label htmlFor={`${id}-importe`} className="midia-etiqueta">
+          Importe (opcional)
+        </label>
+        <input
+          id={`${id}-importe`}
+          type="text"
+          inputMode="decimal"
+          className="midia-control"
+          autoComplete="off"
+          value={form.importe}
+          placeholder="Ej: 45.000"
+          onChange={(e) => onCambio({ importe: e.target.value })}
+          {...campo("importe")}
+        />
+        {error("importe")}
+      </div>
+      <div className="midia-campo midia-campo-moneda">
+        <label htmlFor={`${id}-moneda`} className="midia-etiqueta">
+          Moneda
+        </label>
+        <select
+          id={`${id}-moneda`}
+          className="midia-control"
+          value={form.moneda}
+          onChange={(e) => onCambio({ moneda: e.target.value })}
+          {...campo("moneda")}
+        >
+          {MONEDAS_COBRANZA.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+        {error("moneda")}
+      </div>
+    </>
   );
 }

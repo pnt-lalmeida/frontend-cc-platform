@@ -42,6 +42,15 @@ import {
   type FormRecordatorio,
 } from "./bitacora";
 import { PromesasVigentes } from "./PromesasVigentes";
+import {
+  COBRANZA_VACIA,
+  MAX_HORARIO,
+  MONEDAS_COBRANZA,
+  esPagoCoordinado,
+  sumarCobranzaAlRequest,
+  validarCobranza,
+  type FormCobranza,
+} from "./pagoCoordinado";
 import { MAX_FACTURAS, armarPromesaRequest, validarPromesa, type FormPromesa } from "./promesas";
 import { useAccionesBitacora } from "./useAccionesBitacora";
 import { useApiBitacora } from "./useApiBitacora";
@@ -1011,17 +1020,33 @@ function FormularioGestion({
   const [form, setForm] = useState<FormGestion>(GESTION_VACIA);
   const [errores, setErrores] = useState<Errores<FormGestion>>({});
   const [confirmacion, confirmar] = useConfirmacion();
+  // Entrega 2: sin cobranza_programada el formulario es el de siempre.
+  const { habilitada } = useFeatures();
+  const conCobranza = habilitada("cobranza_programada") && esPagoCoordinado(form.resultado);
+  const [cobranza, setCobranza] = useState<FormCobranza>(COBRANZA_VACIA);
+  const [erroresCobranza, setErroresCobranza] = useState<Errores<FormCobranza>>({});
 
   async function enviar(ev: FormEvent) {
     ev.preventDefault();
     const nuevos = validarGestion(form, motivos, canales);
     setErrores(nuevos);
-    if (hayErrores(nuevos)) return;
-    const ok = await estado.enviar(armarGestionRequest(form));
+    // Los campos de cobranza solo existen (y solo se validan y viajan) con
+    // "Pago coordinado": con otro resultado, lo cargado se ignora.
+    const nuevosCobranza = conCobranza ? validarCobranza(cobranza, hoyUruguay()) : {};
+    setErroresCobranza(nuevosCobranza);
+    if (hayErrores(nuevos) || hayErrores(nuevosCobranza)) return;
+    const body = armarGestionRequest(form);
+    const ok = await estado.enviar(conCobranza ? sumarCobranzaAlRequest(body, cobranza) : body);
     if (ok) {
       setForm(GESTION_VACIA);
+      setCobranza(COBRANZA_VACIA);
       confirmar("Gestión registrada.");
     }
+  }
+
+  function cambiarCobranza(cambio: Partial<FormCobranza>) {
+    setCobranza({ ...cobranza, ...cambio });
+    setErroresCobranza({ ...erroresCobranza, ...Object.fromEntries(Object.keys(cambio).map((k) => [k, undefined])) });
   }
 
   const largoNota = form.nota.trim().length;
@@ -1053,6 +1078,8 @@ function FormularioGestion({
         </select>
       </Campo>
 
+      {conCobranza && <CamposCobranza form={cobranza} errores={erroresCobranza} onCambio={cambiarCobranza} />}
+
       <SelectorCanal id="gestion-canal" canales={canales} valor={form.canal} error={errores.canal} onCambio={(canal) => setForm({ ...form, canal })} />
 
       <Campo id="gestion-nota" etiqueta="Nota" opcional error={errores.nota}>
@@ -1079,6 +1106,93 @@ function FormularioGestion({
         <BotonEnviar enviando={estado.enviando} texto="Registrar gestión" textoEnviando="Registrando…" />
       </PieFormulario>
     </form>
+  );
+}
+
+// Entrega 2: fecha acordada del Pago coordinado (solo fecha, sin hora) y,
+// opcionales, horario e importe. Agrupados con un fondo suave para que se vea
+// que aparecieron por haber elegido "Pago coordinado".
+function CamposCobranza({
+  form,
+  errores,
+  onCambio,
+}: {
+  form: FormCobranza;
+  errores: Errores<FormCobranza>;
+  onCambio: (cambio: Partial<FormCobranza>) => void;
+}) {
+  const hoy = hoyUruguay();
+  const borde = (hay?: string) => (hay ? { borderColor: "var(--color-risk)" } : {});
+  return (
+    <div
+      className="cobranza-campos"
+      style={{ background: "var(--color-accent-soft)", borderRadius: 8, padding: "12px 12px 2px", marginBottom: 12 }}
+    >
+      <div className="bitacora-form-fila" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 10 }}>
+        <Campo id="gestion-fecha" etiqueta="Fecha acordada" error={errores.fecha_cobranza}>
+          <input
+            id="gestion-fecha"
+            className="bitacora-campo"
+            type="date"
+            value={form.fecha_cobranza}
+            min={hoy}
+            aria-invalid={Boolean(errores.fecha_cobranza)}
+            aria-describedby={errores.fecha_cobranza ? "gestion-fecha-error" : undefined}
+            onChange={(e) => onCambio({ fecha_cobranza: e.target.value })}
+            style={{ ...CAMPO, ...borde(errores.fecha_cobranza) }}
+          />
+        </Campo>
+        <Campo id="gestion-horario" etiqueta="Horario" opcional error={errores.horario}>
+          <input
+            id="gestion-horario"
+            className="bitacora-campo"
+            type="text"
+            autoComplete="off"
+            value={form.horario}
+            maxLength={MAX_HORARIO + 20}
+            placeholder="Ej: 14 a 16 h"
+            aria-invalid={Boolean(errores.horario)}
+            aria-describedby={errores.horario ? "gestion-horario-error" : undefined}
+            onChange={(e) => onCambio({ horario: e.target.value })}
+            style={{ ...CAMPO, ...borde(errores.horario) }}
+          />
+        </Campo>
+      </div>
+      <div className="bitacora-form-fila" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(0, 1fr)", gap: 10 }}>
+        <Campo id="gestion-importe" etiqueta="Importe" opcional error={errores.importe}>
+          <input
+            id="gestion-importe"
+            className="bitacora-campo"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            value={form.importe}
+            placeholder="Ej: 45.000"
+            aria-invalid={Boolean(errores.importe)}
+            aria-describedby={errores.importe ? "gestion-importe-error" : undefined}
+            onChange={(e) => onCambio({ importe: e.target.value })}
+            style={{ ...CAMPO, fontFamily: "var(--font-mono)", ...borde(errores.importe) }}
+          />
+        </Campo>
+        <Campo id="gestion-moneda" etiqueta="Moneda" error={errores.moneda}>
+          <select
+            id="gestion-moneda"
+            className="bitacora-campo"
+            value={form.moneda}
+            aria-invalid={Boolean(errores.moneda)}
+            aria-describedby={errores.moneda ? "gestion-moneda-error" : undefined}
+            onChange={(e) => onCambio({ moneda: e.target.value })}
+            style={{ ...CAMPO, ...borde(errores.moneda) }}
+          >
+            {MONEDAS_COBRANZA.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      </div>
+    </div>
   );
 }
 

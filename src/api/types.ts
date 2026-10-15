@@ -297,6 +297,56 @@ export interface RegistrarGestionRequest {
   resultado: string;
   canal?: string;
   nota?: string;
+  // Entrega 2 (cobranza_programada): solo con "Pago coordinado".
+  fecha_cobranza?: string;
+  horario?: string;
+  importe?: number;
+  moneda?: string;
+}
+
+// Entrega 2 (15/10/2026): Cobranza programada. Contrato del backend.
+export type OrigenDireccionCobranza = "plataforma" | "sap";
+
+export interface DireccionCobranza {
+  texto: string | null;
+  origen: OrigenDireccionCobranza | null;
+  editada_por: string | null;
+  editada_utc: string | null;
+}
+
+export interface CobranzaProgramada {
+  id: number;
+  numero_sn: string;
+  card_code: string;
+  cliente_nombre: string | null;
+  direccion: DireccionCobranza;
+  fecha_cobranza: string;
+  horario: string | null;
+  importe: number | null;
+  moneda: string | null;
+  registrada_por: string;
+  registrada_utc: string;
+}
+
+export interface CobranzaProgramadaResponse {
+  fecha: string;
+  cobranzas: CobranzaProgramada[];
+  // "direcciones_sap": la lista viene igual, sin las direcciones de SAP.
+  errores: string[];
+}
+
+export interface CobranzaDeMiDia {
+  id: number;
+  numero_sn: string | null;
+  card_code: string | null;
+  cliente_nombre: string | null;
+  horario: string | null;
+  importe: number | null;
+  moneda: string | null;
+  // Mi dia tambien los manda (los usa el backend, la pantalla no los necesita).
+  fecha_cobranza?: string;
+  registrada_por?: string;
+  registrada_utc?: string;
 }
 
 export interface CrearRecordatorioRequest {
@@ -510,8 +560,11 @@ export interface MiDiaResponse {
   clientes_del_dia: ClientesDelDia | null;
   tareas: TareaMiDia[] | null;
   promesas: PromesaMiDia[] | null;
+  // Solo con cobranza_programada: las programadas para hoy, o null si fallo.
+  // Sin la funcionalidad la clave no viene.
+  cobranzas?: CobranzaDeMiDia[] | null;
   alertas: { abiertas: number; no_vistas: number } | null;
   pedidos_bandeja: { pendientes: number } | null;
-  habilitadas: { promesas: boolean; alertas: boolean };
+  habilitadas: { promesas: boolean; alertas: boolean; cobranzas?: boolean };
   errores: string[];
 }

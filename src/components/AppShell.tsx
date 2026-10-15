@@ -55,6 +55,11 @@ function AppShellContenido() {
           <NavLink to="/bandeja" style={navLinkStyle}>
             Bandeja de autorización
           </NavLink>
+          {habilitada("cobranza_programada") && (
+            <NavLink to="/cobranza" style={navLinkStyle}>
+              Cobranza programada
+            </NavLink>
+          )}
         </nav>
         <div style={{ flex: 1 }} />
         {habilitada("alertas") && <CampanaAlertas />}

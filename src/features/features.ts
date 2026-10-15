@@ -12,7 +12,9 @@ export type FeatureNombre =
   | "situacion_cuenta"
   | "antiguedad_saldos"
   // 28/09/2026: cambiar Suspendido desde Cliente 360 (el estado se ve siempre).
-  | "cambiar_suspendido";
+  | "cambiar_suspendido"
+  // 15/10/2026: fecha en "Pago coordinado" + pestaña "Cobranza programada".
+  | "cobranza_programada";
 
 export type EtapaFeature = "off" | "piloto" | "todos";
 

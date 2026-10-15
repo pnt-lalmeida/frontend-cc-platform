@@ -580,3 +580,17 @@ Detalle técnico en `Architecture.md` punto 64.
 **Ritual que se propone:** antes de cada pasada a `main`, mirar `git log` de `sap_data_access` desde la última revisión. Lo que Germán cambia ahí suele ser exactamente lo que nos va a afectar.
 
 **Nota de método:** al revertir una mutación de prueba con `git checkout -- archivo` se perdieron, por un momento, los cambios sin commitear del agente de frontend en ese archivo. Se recuperaron de una copia hecha antes de mutar. **Mutar siempre sobre una copia, o restaurar desde la copia, nunca con `git checkout`, cuando hay trabajo sin commitear.** El Validador ya lo hace así; el orquestador no lo hizo.
+
+### 15/10/2026 — Reglas de oro para todo cambio, y las Entregas 1 y 2 (motivos, Ver ficha, Pago coordinado con fecha, Cobranza programada)
+Detalle técnico en `Architecture.md` punto 65.
+
+**Reglas de oro (Líber, aplican a todo el trabajo de acá en más):** no romper lo que funciona (cuenta como romper: una pantalla, un cálculo, un campo, un permiso, un dato cargado, un contrato de API, el rendimiento, el móvil, cualquier escritura en SAP); tests de caracterización de los caminos críticos antes de tocar; cambios aditivos o detrás de un flag; migraciones idempotentes y con su inversa; cada entrega se puede apagar o revertir. Si algo obliga a romper, se frena ese ítem y se avisa con el formato qué se rompe / quién lo usa / alternativa / si afecta datos / si es reversible, y los demás siguen. Lo definido en el delta no necesita autorización extra salvo que toque datos cargados. Un test que revela un bug se reporta, no se fija. Plan corto antes de cada ítem no trivial; OK de Líber si se aparta del delta, toca datos, toca SAP o suma tecnología.
+
+**Decisiones de Líber:**
+- "Etiqueta/Carta" ofrece adjuntar archivo; "Etiqueta/Estado de cuenta" no.
+- Pago coordinado con fecha y Cobranza programada van **detrás del mismo flag, en piloto** (solo él). Claudia y Rosina siguen viendo lo de hoy hasta que lo pase a `todos`.
+- La dirección de cobranza es la de SAP y se edita **en la plataforma** (nunca en SAP).
+- Los mensuales automáticos sin vencido se siguen viendo (sin contar), como definió el sector el 13/10.
+- Construir la pestaña sin esperar la validación con Nicolás (actualizó el delta). Esa validación queda para antes de pasar a `todos`.
+
+**Hallazgo con consecuencia de método:** el candado por cliente (`sp_getapplock`) pasaba todos los tests con una conexión falsa, pero esos tests no podían probar lo único que importaba: que `pyodbc` abra la transacción antes del `EXEC`. Se probó contra la base real sin escribir datos. **Cuando una garantía depende del motor (transacciones, candados, aislamiento), un test con dobles no alcanza: hay que verla una vez contra la base real.** Misma familia que el `Decimal` del 02/10.
