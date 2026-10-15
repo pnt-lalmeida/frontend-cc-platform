@@ -18,6 +18,7 @@ import { agruparPorCliente, type GrupoCliente } from "./bandeja/agrupar";
 import { pagadorDeGrupo, resumenPagadores, type ResumenPagador } from "./bandeja/pagadores";
 import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
+import { motivosDeRetencion } from "./bandeja/motivos";
 import { useCandidatos } from "./bandeja/useCandidatos";
 import { OPCIONES_APROBAR, OPCION_CON_ADJUNTO, useDecision } from "./bandeja/useDecision";
 import { useDecisionMultiple, type ResultadoDecisionMultiple } from "./bandeja/useDecisionMultiple";
@@ -596,6 +597,15 @@ export function BandejaPage() {
                     />
                   )}
 
+                  {motivosDeRetencion(seleccionado).length > 0 && (
+                    <div style={{ marginBottom: 14, fontSize: 13, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ color: "var(--color-muted)" }}>Retención:</span>
+                      {motivosDeRetencion(seleccionado).map((m) => (
+                        <StatusTag key={m} variant="neutral">{m}</StatusTag>
+                      ))}
+                    </div>
+                  )}
+
                   {seleccionado.pagador_central && (
                     <div style={{ marginBottom: 14, fontSize: 13 }}>
                       <span style={{ color: "var(--color-muted)" }}>Pagador central: </span>
@@ -1045,11 +1055,14 @@ function FilaCola({
           {candidato.moneda ?? "—"}
         </span>
       </div>
-      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
         <StatusTag variant={variantParaEstadoBandeja(candidato.status_aprobacion)}>
           {candidato.status_aprobacion ?? "—"}
         </StatusTag>
         {candidato.cliente_suspendido && <StatusTag variant="caution">Cliente suspendido</StatusTag>}
+        {motivosDeRetencion(candidato).map((m) => (
+          <StatusTag key={m} variant="neutral">{m}</StatusTag>
+        ))}
       </div>
       </div>
     </div>

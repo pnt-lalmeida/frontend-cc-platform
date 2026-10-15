@@ -68,6 +68,11 @@ export interface CandidatoBandeja {
   // Pagador central (informativo): null = la cuenta no tiene. Ver bandeja/pagadores.ts.
   pagador_central?: string | null;
   pagador_central_nombre?: string | null;
+  // Motivo de retencion en SAP (informativo), calculado sin considerar las actividades de CC.
+  // Opcionales: un backend viejo no los manda, y null es "no se pudo leer el dato". En los dos
+  // casos no se muestra nada: "no se sabe" nunca debe leerse como "no" (Validador, 14/10/2026).
+  motivo_deuda_vencida?: boolean | null;
+  motivo_tope_cedula?: boolean | null;
 }
 
 export interface DecisionResponse {

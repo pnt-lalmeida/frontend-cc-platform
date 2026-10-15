@@ -565,3 +565,18 @@ Entrada del delta `docs/deltas/Delta_Clientes360_14oct.md` (ítems 1.1, 1.4 y 2.
 2. **"Otra zona" son 638 cuentas con saldo que nadie ve.** A diferencia de los otros cinco motivos, ése no se explica solo. ¿Hay ahí trabajo real perdiéndose?
 
 **Nota de método, otra vez sobre medición propia:** di por anómalo que el grupo `18043` no apareciera en Mi día, buscándolo en el nivel equivocado del JSON de respuesta. Estaba, en una sola fila y correcto. **Antes de reportar una anomalía, confirmar que se está mirando donde el dato efectivamente vive.** Es la tercera vez en pocos días que una "falla" resultó ser un error de medición y no del código (ver 06/10).
+
+### 14/10/2026 — Se incorporan los últimos cambios de `sap_data_access`, y cómo no volver a quedarnos atrás
+Detalle técnico en `Architecture.md` punto 64.
+
+**Qué se decidió (Líber):**
+- **Arreglar el Estado de cuenta** con el criterio de moneda de Germán (`JDT1.FCCurrency`). Era un bug real: $355.386,34 de 8 clientes que no se mostraban.
+- **Sumar el tope cédula a la Bandeja**, con la condición de que no rompiera nada de lo que ya había. Se verificó antes de construir que liberar esos pedidos usa la misma Actividad de siempre.
+- **Mostrar el motivo de retención**, con la misma condición.
+- **Cheques con `>=`**, igual que Germán. Reemplaza la decisión anterior de "solo posteriores a hoy".
+
+**La lección de fondo:** la consulta de la Bandeja se copió de Germán el 16/09 y él la siguió mejorando sin que nada nos avisara. Nos enteramos un mes después, leyendo su historial a mano. **Ahora hay un test que compara la lógica de las dos consultas** y falla si divergen. Y queda escrito el riesgo de la copia de Riesgo de bloqueo: las mayúsculas de `current_date` importan.
+
+**Ritual que se propone:** antes de cada pasada a `main`, mirar `git log` de `sap_data_access` desde la última revisión. Lo que Germán cambia ahí suele ser exactamente lo que nos va a afectar.
+
+**Nota de método:** al revertir una mutación de prueba con `git checkout -- archivo` se perdieron, por un momento, los cambios sin commitear del agente de frontend en ese archivo. Se recuperaron de una copia hecha antes de mutar. **Mutar siempre sobre una copia, o restaurar desde la copia, nunca con `git checkout`, cuando hay trabajo sin commitear.** El Validador ya lo hace así; el orquestador no lo hizo.
