@@ -61,6 +61,46 @@ describe("useDecisionMultiple", () => {
     expect(body.adjunto).toEqual(adjunto);
   });
 
+  it.each(["Etiqueta/Estado de cuenta", "Emitir", "Estado de cuenta", "Etiqueta"])(
+    "aprobando en bloque con %s, un adjunto que llegue igual NO viaja (defensa en profundidad)",
+    async (motivo) => {
+      // Validador 15/10: hasta aca solo lo protegian la pagina (no lo arma) y el borrado al cambiar
+      // de radio. Si fallaban los dos, el archivo viajaba con un motivo que no lo admite.
+      const postDecisionMultiple = vi.fn().mockResolvedValue({
+        resultados: [{ docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, adjuntoBlobPath: null, error: null }],
+      });
+      const { result } = renderHook(() => useDecisionMultiple(postDecisionMultiple));
+      await act(async () => {
+        await result.current.decidirVarios({
+          pedidos: [{ docEntry: 1, cardCode: "C1-1", docNum: 100 }],
+          decision: "approved",
+          motivo,
+          adjunto: { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" },
+        });
+      });
+      const [body] = postDecisionMultiple.mock.calls[0];
+      expect(body.adjunto).toBeUndefined();
+      expect(body.motivo).toBe(motivo);
+    },
+  );
+
+  it("aprobando en bloque con Etiqueta/Carta, el adjunto si viaja", async () => {
+    const postDecisionMultiple = vi.fn().mockResolvedValue({
+      resultados: [{ docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, adjuntoBlobPath: "1/x.pdf", error: null }],
+    });
+    const { result } = renderHook(() => useDecisionMultiple(postDecisionMultiple));
+    const adjunto = { nombreArchivo: "carta.pdf", contenidoBase64: "AAAA", contentType: "application/pdf" };
+    await act(async () => {
+      await result.current.decidirVarios({
+        pedidos: [{ docEntry: 1, cardCode: "C1-1", docNum: 100 }],
+        decision: "approved",
+        motivo: "Etiqueta/Carta",
+        adjunto,
+      });
+    });
+    expect(postDecisionMultiple.mock.calls[0][0].adjunto).toEqual(adjunto);
+  });
+
   it("al rechazar en bloque, nunca manda motivo ni adjunto", async () => {
     const postDecisionMultiple = vi.fn().mockResolvedValue({
       resultados: [{ docEntry: 1, docNum: 100, ok: true, sapStatus: "ejecutado", activityCode: 1, adjuntoBlobPath: null, error: null }],

@@ -571,3 +571,22 @@
     flex: 1;
   }
 }
+
+/* "Para hoy": N.º de cliente + "Ver ficha" al final de cada linea. */
+.midia-hoy-cliente {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px 10px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+@media (max-width: 640px) {
+  .midia-hoy-cliente .midia-ficha {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    box-sizing: border-box;
+  }
+}

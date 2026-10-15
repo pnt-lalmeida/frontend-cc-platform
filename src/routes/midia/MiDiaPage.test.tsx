@@ -540,6 +540,105 @@ describe("MiDiaPage: Para hoy", () => {
   });
 });
 
+describe("MiDiaPage: Para hoy - lineas sin datos del cliente (caracterizacion del texto de hoy)", () => {
+  async function montarConLineas() {
+    obtener.mockResolvedValue(
+      respuesta({
+        clientes_del_dia: clientesDelDia(LISTA_BASE),
+        promesas: [promesa({ numero_sn: null, card_code: "" })],
+        tareas: [
+          tarea({ id: 1, numero_sn: null }),
+          tarea({ id: 2, numero_sn: null, fecha_objetivo: "2026-09-30", descripcion: "Pasar por la sucursal" }),
+          tarea({ id: 9, es_mia: false, numero_sn: null, descripcion: "Mandar estado de cuenta" }),
+        ],
+      })
+    );
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    return screen.getByRole("region", { name: "Para hoy" });
+  }
+  const textos = (s: HTMLElement) => [...s.querySelectorAll("li")].map((li) => li.textContent);
+
+  it("backend anterior REAL (tareas con numero_sn pero sin card_code): numero sin enlace, nada roto", async () => {
+    // Validador 15/10: el backend previo a la Entrega 1 ya mandaba numero_sn en cada tarea, y numero_sn
+    // + card_code en cada promesa. Si sale primero el frontend, la tarea muestra el numero sin enlace y
+    // la promesa ya trae "Ver ficha". Es aditivo; Liber lo acepto. Lo que no puede pasar es un enlace roto.
+    obtener.mockResolvedValue(
+      respuesta({
+        clientes_del_dia: clientesDelDia(LISTA_BASE),
+        promesas: [],
+        tareas: [tarea({ id: 1, numero_sn: "00001" })],
+      })
+    );
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    const seccion = screen.getByRole("region", { name: "Para hoy" });
+    expect(within(seccion).getByText("00001")).toBeTruthy();
+    expect(within(seccion).queryAllByRole("link")).toHaveLength(0);
+  });
+
+  it("cada tipo de linea conserva exactamente su texto y no suma enlaces", async () => {
+    const seccion = await montarConLineas();
+    expect(textos(seccion)).toEqual([
+      "Promesa: Chocolates del Este, $ 45.000 · vence hoy",
+      "Recordatorio vencido: Llamar por la factura · Pinturas Norte (hace 2 d)",
+      "Recordatorio de hoy: Pasar por la sucursal · Pinturas Norte (hoy)",
+      "Mandar estado de cuenta · Pinturas Norte (hace 2 d)",
+    ]);
+    expect(within(seccion).queryAllByRole("link")).toHaveLength(0);
+  });
+});
+
+describe("MiDiaPage: Para hoy - numero de cliente y Ver ficha", () => {
+  async function montarConDatos(parcialPromesa: Partial<PromesaMiDia>, parcialTarea: Partial<TareaMiDia>) {
+    obtener.mockResolvedValue(
+      respuesta({
+        clientes_del_dia: clientesDelDia(LISTA_BASE),
+        promesas: [promesa(parcialPromesa)],
+        tareas: [
+          tarea({ id: 1, ...parcialTarea }),
+          tarea({ id: 9, es_mia: false, descripcion: "Mandar estado de cuenta", cliente_nombre: "Otro Cliente", ...parcialTarea, numero_sn: "01709", card_code: "C1-01709" }),
+        ],
+      })
+    );
+    montar();
+    await screen.findByText("Te quedan 5 de 6");
+    return screen.getByRole("region", { name: "Para hoy" });
+  }
+
+  it("promesa, recordatorio propio y de otras personas muestran el numero y un enlace a la ficha", async () => {
+    const seccion = await montarConDatos({}, { numero_sn: "00001", card_code: "C1-00001" });
+    const enlaces = within(seccion).getAllByRole("link", { name: /^Ver ficha de / });
+    expect(enlaces.map((a) => [a.getAttribute("aria-label"), a.getAttribute("href")])).toEqual([
+      ["Ver ficha de Chocolates del Este", "/cliente-360?cliente=C1-00002"],
+      ["Ver ficha de Pinturas Norte", "/cliente-360?cliente=C1-00001"],
+      ["Ver ficha de Otro Cliente", "/cliente-360?cliente=C1-01709"],
+    ]);
+    for (const a of enlaces) expect(a.className).toBe("midia-ficha");
+    expect(within(seccion).getByText("00002")).toBeTruthy();
+    expect(within(seccion).getByText("00001")).toBeTruthy();
+    expect(within(seccion).getByText("01709")).toBeTruthy();
+  });
+
+  it("sin card_code el numero se muestra sin enlace (nunca un enlace roto)", async () => {
+    const seccion = await montarConDatos({}, { numero_sn: "00001", card_code: null });
+    expect(within(seccion).getByText("00001")).toBeTruthy();
+    expect(within(seccion).queryByRole("link", { name: "Ver ficha de Pinturas Norte" })).toBeNull();
+    expect(within(seccion).getAllByRole("link")).toHaveLength(2);
+  });
+
+  it("sin numero_sn pero con card_code usa el codigo como numero, como en las filas de clientes", async () => {
+    const seccion = await montarConDatos({}, { numero_sn: null, card_code: "C1-00001" });
+    expect(within(seccion).getByText("C1-00001")).toBeTruthy();
+    expect(within(seccion).getByRole("link", { name: "Ver ficha de Pinturas Norte" })).toBeTruthy();
+  });
+
+  it("un recordatorio sin nombre de cliente usa el numero en el aria-label", async () => {
+    const seccion = await montarConDatos({}, { numero_sn: "00001", card_code: "C1-00001", cliente_nombre: null });
+    expect(within(seccion).getByRole("link", { name: "Ver ficha de 00001" })).toBeTruthy();
+  });
+});
+
 describe("MiDiaPage: pie", () => {
   it("pedidos de la Bandeja como enlace chico y alertas como línea", async () => {
     obtener.mockResolvedValue(

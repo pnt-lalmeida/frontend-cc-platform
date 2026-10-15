@@ -210,6 +210,8 @@ export interface ItemPromesa {
   cliente: string;
   importe: string;
   cuando: string;
+  numero: string | null;
+  cardCode: string | null;
 }
 
 export interface ItemRecordatorio {
@@ -218,6 +220,8 @@ export interface ItemRecordatorio {
   cliente: string | null;
   vencido: boolean;
   cuando: string;
+  numero: string | null;
+  cardCode: string | null;
 }
 
 export interface ParaHoy {
@@ -244,6 +248,8 @@ function recordatorio(tarea: TareaMiDia, hoy: string): ItemRecordatorio {
     cliente: tarea.cliente_nombre,
     vencido: dias > 0,
     cuando: dias > 0 ? `hace ${dias} d` : "hoy",
+    numero: tarea.numero_sn || tarea.card_code || null,
+    cardCode: tarea.card_code || null,
   };
 }
 
@@ -261,6 +267,8 @@ export function armarParaHoy(tareas: TareaMiDia[], promesas: PromesaMiDia[], hoy
     cliente: p.cliente_nombre?.trim() || p.card_code,
     importe: formatMoneyEntero(p.importe, p.moneda),
     cuando: cuandoPromesa(p.fecha_prometida, hoy),
+    numero: p.numero_sn || p.card_code || null,
+    cardCode: p.card_code || null,
   }));
   return {
     promesas: itemsPromesa,

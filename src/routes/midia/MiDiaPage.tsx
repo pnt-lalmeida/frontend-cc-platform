@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { ClientesDelDia, MiDiaResponse } from "../../api/types";
 import { BadgePiloto } from "../../components/BadgePiloto";
 import { useFeatures } from "../../features/FeaturesContext";
+import { urlDeCliente } from "../cliente360/urlCliente";
 import { FilaMiDia } from "./FilaMiDia";
 import {
   armarParaHoy,
@@ -267,6 +268,7 @@ function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: Par
             <strong>{p.cliente}</strong>
             <span className="midia-mono">, {p.importe}</span>
             <span className="midia-muted"> · {p.cuando}</span>
+            <ClienteDeLinea numero={p.numero} cardCode={p.cardCode} nombre={p.cliente} />
           </li>
         ))}
         {paraHoy.recordatoriosMios.map((t) => (
@@ -277,6 +279,7 @@ function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: Par
             <span>{t.descripcion}</span>
             {t.cliente && <strong> · {t.cliente}</strong>}
             <span className="midia-muted"> ({t.cuando})</span>
+            <ClienteDeLinea numero={t.numero} cardCode={t.cardCode} nombre={t.cliente} />
           </li>
         ))}
       </ul>
@@ -293,6 +296,7 @@ function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: Par
                 <span>{t.descripcion}</span>
                 {t.cliente && <strong> · {t.cliente}</strong>}
                 <span className="midia-muted"> ({t.cuando})</span>
+                <ClienteDeLinea numero={t.numero} cardCode={t.cardCode} nombre={t.cliente} />
               </li>
             ))}
           </ul>
@@ -539,5 +543,22 @@ function Pie({ datos, clientes }: { datos: MiDiaResponse; clientes: ClientesDelD
         </details>
       )}
     </footer>
+  );
+}
+
+// N.º de cliente y "Ver ficha" al final de cada linea de "Para hoy". Sin
+// numero (backend viejo) no agrega nada: la linea queda como siempre. Sin
+// card_code muestra el numero y nada mas, nunca un enlace roto.
+function ClienteDeLinea({ numero, cardCode, nombre }: { numero: string | null; cardCode: string | null; nombre: string | null }) {
+  if (!numero && !cardCode) return null;
+  return (
+    <span className="midia-hoy-cliente">
+      {numero && <span className="midia-numero">{numero}</span>}
+      {cardCode && (
+        <Link to={urlDeCliente(cardCode)} className="midia-ficha" aria-label={`Ver ficha de ${nombre || numero || cardCode}`}>
+          Ver ficha
+        </Link>
+      )}
+    </span>
   );
 }

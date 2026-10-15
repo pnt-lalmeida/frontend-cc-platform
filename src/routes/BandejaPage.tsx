@@ -20,7 +20,7 @@ import { coincideBusqueda, ordenarPorFechaDesc } from "./bandeja/busqueda";
 import { variantParaEstadoBandeja } from "./bandeja/estado";
 import { motivosDeRetencion } from "./bandeja/motivos";
 import { useCandidatos } from "./bandeja/useCandidatos";
-import { OPCIONES_APROBAR, OPCION_CON_ADJUNTO, useDecision } from "./bandeja/useDecision";
+import { OPCIONES_APROBAR, ofreceAdjunto, useDecision } from "./bandeja/useDecision";
 import { useDecisionMultiple, type ResultadoDecisionMultiple } from "./bandeja/useDecisionMultiple";
 
 type FiltroEstado = "Todos" | "Pendiente" | "Rechazado";
@@ -216,7 +216,7 @@ export function BandejaPage() {
     if (pedidos.length === 0) return;
 
     let adjunto: AdjuntoRequest | undefined;
-    if (decision === "approved" && opcionAprobarMultiple === OPCION_CON_ADJUNTO && archivoAdjuntoMultiple) {
+    if (decision === "approved" && ofreceAdjunto(opcionAprobarMultiple) && archivoAdjuntoMultiple) {
       adjunto = await archivoAAdjuntoRequest(archivoAdjuntoMultiple);
     }
 
@@ -312,7 +312,7 @@ export function BandejaPage() {
       return;
     }
     let adjunto: AdjuntoRequest | undefined;
-    if (opcionAprobar === OPCION_CON_ADJUNTO && archivoAdjunto) {
+    if (ofreceAdjunto(opcionAprobar) && archivoAdjunto) {
       adjunto = await archivoAAdjuntoRequest(archivoAdjunto);
     }
     const resultado = await decidir({
@@ -675,7 +675,7 @@ export function BandejaPage() {
                     ))}
                   </div>
 
-                  {opcionAprobar === OPCION_CON_ADJUNTO && (
+                  {ofreceAdjunto(opcionAprobar) && (
                     <div style={{ marginBottom: 14 }}>
                       <label style={{ fontSize: 12.5, color: "var(--color-muted)", display: "block", marginBottom: 6 }}>
                         Adjuntar archivo (opcional — imagen, PDF o Word, máx. 10 MB)
@@ -685,7 +685,7 @@ export function BandejaPage() {
                         accept={TIPOS_ADJUNTO_PERMITIDOS.join(",")}
                         onChange={(e) => elegirArchivo(e.target.files?.[0] ?? null)}
                         disabled={enviando}
-                        style={{ fontSize: 13 }}
+                        style={{ fontSize: 13, maxWidth: "100%" }}
                       />
                       {archivoAdjunto && (
                         <p style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
@@ -830,7 +830,7 @@ function BarraSeleccionMultiple({
               </label>
             ))}
           </div>
-          {opcionAprobar === OPCION_CON_ADJUNTO && (
+          {ofreceAdjunto(opcionAprobar) && (
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 11.5, color: "var(--color-muted)", display: "block", marginBottom: 6 }}>
                 Adjuntar archivo (opcional — se sube una copia a cada pedido seleccionado, máx. 10 MB)
@@ -839,7 +839,7 @@ function BarraSeleccionMultiple({
                 type="file"
                 accept={TIPOS_ADJUNTO_PERMITIDOS.join(",")}
                 onChange={(e) => onElegirArchivo(e.target.files?.[0] ?? null)}
-                style={{ fontSize: 12.5 }}
+                style={{ fontSize: 12.5, maxWidth: "100%" }}
               />
               {archivoAdjunto && (
                 <p style={{ fontSize: 11.5, color: "var(--color-muted)", marginTop: 4 }}>

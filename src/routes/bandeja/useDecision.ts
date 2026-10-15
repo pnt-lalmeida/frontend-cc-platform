@@ -3,10 +3,25 @@ import type { AdjuntoRequest, DecisionRequest, DecisionResponse } from "../../ap
 import { mensajeDeError } from "./errores";
 
 // docs/superpowers/specs/2026-09-21-bandeja-adjuntos-y-suspendido-design.md S1:
-// conjunto cerrado, texto final. "Estado de cuenta/carta" es la unica opcion
-// que admite adjuntar un archivo (OPCION_CON_ADJUNTO).
-export const OPCIONES_APROBAR = ["Emitir", "Estado de cuenta", "Estado de cuenta/carta", "Etiqueta"] as const;
-export const OPCION_CON_ADJUNTO: (typeof OPCIONES_APROBAR)[number] = "Estado de cuenta/carta";
+// conjunto cerrado, texto final. Entrega 1 (15/10/2026): se suman "Etiqueta/Carta"
+// (ofrece adjuntar) y "Etiqueta/Estado de cuenta" (no). Los motivos que ofrecen
+// adjuntar archivo estan en OPCIONES_CON_ADJUNTO.
+export const OPCIONES_APROBAR = [
+  "Emitir",
+  "Estado de cuenta",
+  "Estado de cuenta/carta",
+  "Etiqueta",
+  "Etiqueta/Carta",
+  "Etiqueta/Estado de cuenta",
+] as const;
+export type OpcionAprobar = (typeof OPCIONES_APROBAR)[number];
+export const OPCIONES_CON_ADJUNTO: ReadonlySet<OpcionAprobar> = new Set<OpcionAprobar>([
+  "Estado de cuenta/carta",
+  "Etiqueta/Carta",
+]);
+export function ofreceAdjunto(opcion: string | null | undefined): boolean {
+  return opcion != null && (OPCIONES_CON_ADJUNTO as ReadonlySet<string>).has(opcion);
+}
 
 interface ParametrosDecision {
   docEntry: number;
@@ -57,7 +72,7 @@ export function useDecision(
             docNum: params.docNum,
             decision: params.decision,
             motivo: params.motivo,
-            ...(params.motivo === OPCION_CON_ADJUNTO && params.adjunto ? { adjunto: params.adjunto } : {}),
+            ...(ofreceAdjunto(params.motivo) && params.adjunto ? { adjunto: params.adjunto } : {}),
           }
         : { cardCode: params.cardCode, docNum: params.docNum, decision: params.decision };
 

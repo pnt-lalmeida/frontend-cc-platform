@@ -495,6 +495,9 @@ export interface TareaMiDia extends TareaBitacora {
   numero_sn: string | null;
   cliente_nombre: string | null;
   es_mia: boolean;
+  // Cuenta representante del cliente (null si no tiene saldo hoy). Ausente
+  // con un backend anterior a la Entrega 1: la linea queda sin enlace.
+  card_code?: string | null;
 }
 
 export interface PromesaMiDia extends PromesaPago {

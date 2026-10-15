@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ofreceAdjunto } from "./useDecision";
 import type {
   AdjuntoRequest,
   DecisionMultipleRequest,
@@ -60,7 +61,8 @@ export function useDecisionMultiple(
         decision: params.decision,
         motivo: params.decision === "approved" ? params.motivo : undefined,
         pedidos: params.pedidos,
-        adjunto: params.decision === "approved" ? params.adjunto : undefined,
+        // Solo con un motivo que admite adjunto (Validador 15/10: defensa en profundidad, como useDecision).
+        adjunto: params.decision === "approved" && ofreceAdjunto(params.motivo) ? params.adjunto : undefined,
       });
       const items: ResultadoDecisionMultiple[] = respuesta.resultados.map((r) => ({
         docEntry: r.docEntry,
