@@ -12,12 +12,15 @@ const VARIANT_STYLES: Record<StatusTagVariant, { background: string; color: stri
 export function StatusTag({
   variant,
   children,
+  title,
 }: {
   variant: StatusTagVariant;
   children: ReactNode;
+  title?: string;
 }) {
   return (
     <span
+      title={title}
       style={{
         fontSize: 12,
         fontWeight: 600,

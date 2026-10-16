@@ -360,7 +360,7 @@ export function BandejaPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, height: "calc(100vh - 96px)" }}>
+    <div className="bandeja-raiz" style={{ display: "flex", flexDirection: "column", gap: 16, height: "calc(100vh - 96px)" }}>
       {mensajeExito && (
         <div
           style={{
@@ -1063,6 +1063,16 @@ function FilaCola({
         {motivosDeRetencion(candidato).map((m) => (
           <StatusTag key={m} variant="neutral">{m}</StatusTag>
         ))}
+        {candidato.pagador_central && (
+          <StatusTag
+            variant="neutral"
+            title={`Lo paga ${candidato.pagador_central}${
+              candidato.pagador_central_nombre ? ` · ${candidato.pagador_central_nombre}` : ""
+            }`}
+          >
+            Pagador central
+          </StatusTag>
+        )}
       </div>
       </div>
     </div>

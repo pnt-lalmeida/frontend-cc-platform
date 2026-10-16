@@ -23,6 +23,15 @@ function AppShellContenido() {
     });
   }
 
+  const entradas = [
+    ...(habilitada("mi_dia") ? [{ to: "/mi-dia", largo: "Mi día", corto: "Mi día" }] : []),
+    { to: "/cliente-360", largo: "Cliente 360", corto: "Cliente 360" },
+    { to: "/bandeja", largo: "Bandeja de autorización", corto: "Bandeja" },
+    ...(habilitada("cobranza_programada")
+      ? [{ to: "/cobranza", largo: "Cobranza programada", corto: "Cobranza" }]
+      : []),
+  ];
+
   return (
     <div>
       <header
@@ -43,28 +52,27 @@ function AppShellContenido() {
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 19 }}>
           Pontyn
         </div>
-        <nav className="app-header-nav" style={{ display: "flex", gap: 4 }}>
-          {habilitada("mi_dia") && (
-            <NavLink to="/mi-dia" style={navLinkStyle}>
-              Mi día
+        {/* En escritorio vive en el header; hasta 720px el CSS (tokens.css) lo
+            lleva a una barra fija al pie, con la etiqueta corta (data-corto). */}
+        <nav
+          className="app-header-nav"
+          aria-label="Menú principal"
+          data-entradas={entradas.length}
+          style={{ display: "flex", gap: 4 }}
+        >
+          {entradas.map((e) => (
+            <NavLink key={e.to} to={e.to} className="app-nav-link" data-corto={e.corto} style={navLinkStyle}>
+              <span className="app-nav-largo">{e.largo}</span>
             </NavLink>
-          )}
-          <NavLink to="/cliente-360" style={navLinkStyle}>
-            Cliente 360
-          </NavLink>
-          <NavLink to="/bandeja" style={navLinkStyle}>
-            Bandeja de autorización
-          </NavLink>
-          {habilitada("cobranza_programada") && (
-            <NavLink to="/cobranza" style={navLinkStyle}>
-              Cobranza programada
-            </NavLink>
-          )}
+          ))}
         </nav>
         <div style={{ flex: 1 }} />
         {habilitada("alertas") && <CampanaAlertas />}
-        <div style={{ fontSize: 12.5, color: "var(--color-muted)" }}>{nombre}</div>
+        <div className="app-header-usuario" style={{ fontSize: 12.5, color: "var(--color-muted)" }}>
+          {nombre}
+        </div>
         <button
+          className="app-header-salir"
           onClick={logout}
           style={{
             background: "none",

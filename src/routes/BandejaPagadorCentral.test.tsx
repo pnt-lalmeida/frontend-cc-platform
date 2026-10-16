@@ -68,30 +68,47 @@ describe("Bandeja — pagador central", () => {
     expect(within(detalle).queryByText(/Pagador central/)).toBeNull();
   });
 
-  it("es solo informacion: mismas filas, mismo orden y mismos botones (tras elegir motivo) con y sin pagador", () => {
+  it("es solo informacion: mismas filas, orden, etiquetas y botones (tras elegir motivo) en TODOS los pedidos, con y sin pagador", () => {
+    // Validador 16/10: comparando solo el pedido 2 sobrevivian 4 de 6 mutaciones (deshabilitar Aprobar o
+    // Rechazar en otro pedido con pagador, ocultar "Cliente suspendido" o el motivo de retencion). Mismo
+    // hueco que el 14/10 en BandejaMotivoRetencion. Ahora se recorren los 4 pedidos y los datos traen
+    // suspendido y motivos, para que esconderlos cambie el texto de la fila.
+    const conDatos = (lista: CandidatoBandeja[]): CandidatoBandeja[] => lista.map((c) => ({
+      ...c,
+      cliente_suspendido: c.doc_entry === 1,
+      motivo_deuda_vencida: (c.doc_entry ?? 0) % 2 === 0,
+      motivo_tope_cedula: c.doc_entry === 4,
+    }));
     function estado() {
       const { container, unmount } = renderBandeja();
+      const fila = (n: number) => container.querySelector(`[data-doc-entry="${n}"]`) as HTMLElement;
       const orden = ordenFilas(container);
-      const textoFilas = orden.map((d) => container.querySelector(`[data-doc-entry="${d}"]`)!.textContent!.replace(/Lo paga.*?(?=Pedido|$)/, ""));
-      fireEvent.click(container.querySelector('[data-doc-entry="2"]')!);
-      const antes = {
+      const textoFilas = orden.map((d) => fila(Number(d)).textContent!.replace(/Lo paga.*?(?=Pedido|$)/, "").replace("Pagador central", ""));
+      const botones = () => ({
         aprobar: (screen.getByRole("button", { name: "Aprobar" }) as HTMLButtonElement).disabled,
         rechazar: (screen.getByRole("button", { name: "Rechazar" }) as HTMLButtonElement).disabled,
-      };
-      fireEvent.click(screen.getAllByRole("radio")[0]);
-      const despues = {
-        aprobar: (screen.getByRole("button", { name: "Aprobar" }) as HTMLButtonElement).disabled,
-        rechazar: (screen.getByRole("button", { name: "Rechazar" }) as HTMLButtonElement).disabled,
-      };
+      });
+      const porPedido = [1, 2, 3, 4].map((n) => {
+        fireEvent.click(fila(n));
+        const antes = botones();
+        fireEvent.click(screen.getAllByRole("radio")[0]);
+        return { n, antes, despues: botones() };
+      });
       unmount();
-      return { orden, textoFilas, antes, despues };
+      return { orden, textoFilas, porPedido };
     }
-    candidatos = conPagador();
+    candidatos = conDatos(conPagador());
     const con = estado();
-    candidatos = sinPagador();
+    candidatos = conDatos(sinPagador());
     const sin = estado();
-    expect(con.despues.aprobar).toBe(false); // el motivo realmente habilito Aprobar
-    expect(con.antes.aprobar).toBe(true);
+    // Sin esto la comparacion no prueba nada: Aprobar arranca deshabilitado siempre.
+    for (const p of con.porPedido) {
+      expect(p.antes.aprobar).toBe(true);
+      expect(p.despues.aprobar).toBe(false);
+      expect(p.despues.rechazar).toBe(false);
+    }
+    expect(con.textoFilas.join(" ")).toContain("Tope cédula");
+    expect(con.textoFilas.join(" ")).toContain("Cliente suspendido");
     expect(con).toEqual(sin);
   });
 });

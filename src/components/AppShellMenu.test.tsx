@@ -84,3 +84,47 @@ describe("AppShell: Cobranza programada", () => {
     expect(entradasDelMenu().slice(-1)[0]).toBe("Cobranza programada|/cobranza");
   });
 });
+
+describe("AppShell: estructura del encabezado (caracterización)", () => {
+  beforeEach(() => featuresHabilitadas.clear());
+
+  it("el menú vive dentro del header, junto a Pontyn, el usuario y Cerrar sesión", () => {
+    montar();
+    const header = screen.getByRole("banner");
+    expect(header.contains(screen.getByRole("navigation"))).toBe(true);
+    expect(header.textContent).toContain("Pontyn");
+    expect(header.textContent).toContain("Rosina López");
+    expect(screen.getByRole("button", { name: "Cerrar sesión" })).toBeTruthy();
+  });
+
+  it("la entrada activa lleva aria-current=page", () => {
+    montar();
+    const activa = screen.getByRole("navigation").querySelector('a[aria-current="page"]');
+    expect(activa?.getAttribute("href")).toBe("/cliente-360");
+  });
+});
+
+describe("AppShell: menú en el celular (barra al pie)", () => {
+  beforeEach(() => featuresHabilitadas.clear());
+
+  it("el nav tiene nombre accesible", () => {
+    montar();
+    expect(screen.getByRole("navigation", { name: "Menú principal" })).toBeTruthy();
+  });
+
+  it("cada entrada trae su etiqueta corta; el texto largo sigue siendo el contenido", () => {
+    featuresHabilitadas.add("mi_dia");
+    featuresHabilitadas.add("cobranza_programada");
+    montar();
+    const nav = screen.getByRole("navigation");
+    const cortas = Array.from(nav.querySelectorAll("a")).map((a) => a.getAttribute("data-corto"));
+    expect(cortas).toEqual(["Mi día", "Cliente 360", "Bandeja", "Cobranza"]);
+    expect(entradasDelMenu()[2]).toBe("Bandeja de autorización|/bandeja");
+  });
+
+  it("la cantidad de entradas va en data-entradas (3 o 4) para que la barra reparta el ancho", () => {
+    featuresHabilitadas.add("mi_dia");
+    montar();
+    expect(screen.getByRole("navigation").getAttribute("data-entradas")).toBe("3");
+  });
+});
