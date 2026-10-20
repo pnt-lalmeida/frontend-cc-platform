@@ -594,3 +594,10 @@ Detalle técnico en `Architecture.md` punto 65.
 - Construir la pestaña sin esperar la validación con Nicolás (actualizó el delta). Esa validación queda para antes de pasar a `todos`.
 
 **Hallazgo con consecuencia de método:** el candado por cliente (`sp_getapplock`) pasaba todos los tests con una conexión falsa, pero esos tests no podían probar lo único que importaba: que `pyodbc` abra la transacción antes del `EXEC`. Se probó contra la base real sin escribir datos. **Cuando una garantía depende del motor (transacciones, candados, aislamiento), un test con dobles no alcanza: hay que verla una vez contra la base real.** Misma familia que el `Decimal` del 02/10.
+
+### 20/10/2026 — Cobranza programada (y Pago coordinado con fecha) pasa a `todos`
+**Decisión de Líber:** `FEATURE_COBRANZA_PROGRAMADA=todos`. Desde hoy todo el equipo ve la pestaña "Cobranza programada" y, al elegir "Pago coordinado", el calendario obligatorio, en la ficha y en el registro rápido de Mi día. Las dos cosas van juntas: comparten el flag por decisión del 15/10.
+
+**Contexto al decidir:** en el piloto (16/10 al 20/10) **no se registró ninguna cobranza ni se editó ninguna dirección**, así que el primer uso con datos reales es el del equipo. Siguen abiertos, sin bloquear: si el cobrador entra al sistema (rol en Entra ID), si hace falta exportar o imprimir (pedido aparte, por datos personales), validar con Nicolás que POC no tenga ya una agenda, y confirmar con Claudia que "fecha de gestión" es la fecha acordada.
+
+**Reversible sin redeploy:** volver el flag a `piloto` o `off`. Las cobranzas cargadas quedan en `crm_cobranzas` y vuelven a verse al prenderlo.
