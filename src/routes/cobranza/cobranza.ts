@@ -50,3 +50,13 @@ export function importeDeCobranza(cobranza: CobranzaProgramada): string | null {
 export function nombreDeCobranza(cobranza: Pick<CobranzaProgramada, "cliente_nombre" | "card_code">): string {
   return cobranza.cliente_nombre?.trim() || cobranza.card_code;
 }
+
+export function textoCantidad(n: number): string {
+  return n === 1 ? "1 cobranza" : `${n} cobranzas`;
+}
+
+// "Cobranza programada — jueves 22/10/2026": el titulo de la hoja impresa.
+export function tituloImpresion(fecha: string): string {
+  const dia = new Intl.DateTimeFormat("es-UY", { weekday: "long", timeZone: "UTC" }).format(new Date(`${fecha}T00:00:00Z`));
+  return `Cobranza programada — ${dia.toLowerCase()} ${formatDate(fecha)}`;
+}

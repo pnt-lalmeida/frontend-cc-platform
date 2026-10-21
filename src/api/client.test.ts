@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, ApiError } from "./client";
+import { apiFetch, apiFetchArchivo, ApiError } from "./client";
 
 describe("apiFetch", () => {
   beforeEach(() => {
@@ -88,5 +88,46 @@ describe("apiFetch", () => {
 
     await expect(apiFetch("/api/health", { token: "x" })).rejects.toBeInstanceOf(ApiError);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("apiFetchArchivo", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("manda el bearer, devuelve el Blob y el nombre del Content-Disposition", async () => {
+    const blob = new Blob(["a;b"]);
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      blob: async () => blob,
+      headers: new Headers({ "Content-Disposition": 'attachment; filename="cobranza-2026-10-22.csv"' }),
+    });
+
+    const r = await apiFetchArchivo("/api/x?fecha=2026-10-22", { token: "abc" });
+
+    const [url, init] = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("https://cc-platform-api.azurewebsites.net/api/x?fecha=2026-10-22");
+    expect(init.headers.Authorization).toBe("Bearer abc");
+    expect(r.blob).toBe(blob);
+    expect(r.nombre).toBe("cobranza-2026-10-22.csv");
+  });
+
+  it("sin Content-Disposition el nombre es null", async () => {
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: true, blob: async () => new Blob([]), headers: new Headers() });
+    expect((await apiFetchArchivo("/api/x", { token: "t" })).nombre).toBeNull();
+  });
+
+  it("lanza ApiError con status y el JSON de error si no es 2xx", async () => {
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: "SAP no respondió" }),
+      headers: new Headers(),
+    });
+    await expect(apiFetchArchivo("/api/x", { token: "t" })).rejects.toMatchObject({ status: 503, body: { error: "SAP no respondió" } });
   });
 });

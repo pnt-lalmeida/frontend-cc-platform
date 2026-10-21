@@ -399,3 +399,144 @@
     font-size: 16px;
   }
 }
+
+/* ---- Exportar (21/10/2026, flag cobranza_exportar) ----------------------- */
+
+/* Acciones del dia, bajo el selector. */
+.cobranza-exportar {
+  margin-top: 12px;
+}
+.cobranza-exportar-botones {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cobranza-exportar-error {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13.5px;
+}
+@media (max-width: 720px) {
+  .cobranza-exportar-botones .cobranza-boton {
+    flex: 1 1 0;
+    white-space: normal;
+  }
+}
+
+/* La hoja impresa no existe en pantalla. */
+.cobranza-impresion {
+  display: none;
+}
+
+/* Hoja para el cobrador: negro sobre blanco, la direccion (donde ir) y el
+   horario (cuando) son lo mas grande; el importe, a la derecha, alineado para
+   comparar de un vistazo. Una cobranza por bloque, nunca partida entre dos
+   paginas. Solo aplica a la pantalla marcada data-imprimible (con el flag). */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm;
+  }
+  body:has(.cobranza[data-imprimible]) {
+    background: #fff;
+  }
+  body:has(.cobranza[data-imprimible]) .app-header {
+    display: none !important;
+  }
+  body:has(.cobranza[data-imprimible]) .app-main {
+    padding: 0 !important;
+  }
+  .cobranza[data-imprimible] {
+    max-width: none;
+    color: #000;
+  }
+  .cobranza[data-imprimible] > :not(.cobranza-impresion) {
+    display: none !important;
+  }
+  .cobranza[data-imprimible] > .cobranza-impresion {
+    display: block;
+  }
+
+  .cobranza-impresion-encabezado {
+    margin-bottom: 6mm;
+    padding-bottom: 3mm;
+    border-bottom: 0.5mm solid #000;
+  }
+  .cobranza-impresion-titulo {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 21pt;
+    line-height: 1.15;
+  }
+  .cobranza-impresion-cuenta {
+    margin: 1mm 0 0;
+    font-size: 11pt;
+    color: #333;
+  }
+  .cobranza-impresion-lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .cobranza-impresion-item {
+    display: grid;
+    grid-template-columns: 30mm minmax(0, 1fr) auto;
+    column-gap: 6mm;
+    align-items: start;
+    padding: 4mm 0;
+    border-bottom: 0.3mm solid #777;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .cobranza-impresion-item p {
+    margin: 0;
+  }
+  .cobranza-impresion-horario {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 14pt;
+    line-height: 1.2;
+  }
+  .cobranza-impresion-cliente {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 3mm;
+  }
+  .cobranza-impresion-nombre {
+    font-size: 12pt;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .cobranza-impresion-numero {
+    font-family: var(--font-mono);
+    font-size: 10pt;
+    color: #333;
+  }
+  .cobranza-impresion-direccion {
+    margin-top: 1.5mm !important;
+    font-size: 14pt;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .cobranza-impresion-sin-direccion {
+    font-size: 12pt;
+    font-style: italic;
+    color: #333;
+  }
+  .cobranza-impresion-importe {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 12pt;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+.cobranza-exportar-nota {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted);
+}

@@ -6,6 +6,8 @@ import {
   fraseOrigenDireccion,
   importeDeCobranza,
   nombreDeCobranza,
+  textoCantidad,
+  tituloImpresion,
   validarDireccion,
 } from "./cobranza";
 
@@ -69,5 +71,17 @@ describe("importeDeCobranza / nombreDeCobranza", () => {
     expect(nombreDeCobranza(base)).toBe("Dulces del Sur");
     expect(nombreDeCobranza({ ...base, cliente_nombre: "  " })).toBe("C1-02928");
     expect(nombreDeCobranza({ ...base, cliente_nombre: null })).toBe("C1-02928");
+  });
+});
+
+describe("tituloImpresion / textoCantidad", () => {
+  it("día de la semana en minúscula y fecha DD/MM/AAAA", () => {
+    expect(tituloImpresion("2026-10-22")).toBe("Cobranza programada — jueves 22/10/2026");
+    expect(tituloImpresion("2026-01-04")).toBe("Cobranza programada — domingo 04/01/2026");
+  });
+  it("singular y plural", () => {
+    expect(textoCantidad(1)).toBe("1 cobranza");
+    expect(textoCantidad(0)).toBe("0 cobranzas");
+    expect(textoCantidad(12)).toBe("12 cobranzas");
   });
 });

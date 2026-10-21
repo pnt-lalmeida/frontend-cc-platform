@@ -39,3 +39,25 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions): Promi
 
   return responseBody as T;
 }
+
+// Variante para respuestas que no son JSON (archivos). apiFetch no cambia.
+// Devuelve el Blob y el nombre que el servidor puso en Content-Disposition
+// (null si no vino). En error lee el JSON de error igual que apiFetch.
+export async function apiFetchArchivo(
+  path: string,
+  options: { token: string; method?: string }
+): Promise<{ blob: Blob; nombre: string | null }> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: options.method ?? "GET",
+    headers: { Authorization: `Bearer ${options.token}` },
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => undefined);
+    throw new ApiError(response.status, body);
+  }
+
+  const disposicion = response.headers.get("Content-Disposition") ?? "";
+  const nombre = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposicion)?.[1]?.trim() ?? null;
+  return { blob: await response.blob(), nombre };
+}

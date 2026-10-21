@@ -13,11 +13,14 @@ import {
   fraseOrigenDireccion,
   importeDeCobranza,
   nombreDeCobranza,
+  textoCantidad,
+  tituloImpresion,
   validarDireccion,
 } from "./cobranza";
 import { useAccionesCobranza } from "./useAccionesCobranza";
 import { useApiCobranza } from "./useApiCobranza";
 import { useCobranzaDia } from "./useCobranzaDia";
+import { guardarArchivo, useExportarCobranza } from "./useExportarCobranza";
 
 // Entrega 2 (15/10/2026): pestaña "Cobranza programada". Reemplaza el estado
 // de cuenta impreso del cobrador: lo que hay que cobrar un dia, con la
@@ -25,8 +28,8 @@ import { useCobranzaDia } from "./useCobranzaDia";
 // Sin exportar ni imprimir (pedido aparte, por datos personales).
 
 export function CobranzaPage() {
-  const { enPiloto } = useFeatures();
-  const { obtener, acciones } = useApiCobranza();
+  const { habilitada, enPiloto } = useFeatures();
+  const { obtener, acciones, exportar } = useApiCobranza();
   const hoy = hoyUruguay();
   const [fecha, setFecha] = useState(hoy);
   const dia = useCobranzaDia(obtener, fecha);
@@ -43,9 +46,31 @@ export function CobranzaPage() {
     alRecargar: () => void dia.recargar(),
   });
 
+  // Flag cobranza_exportar: sin el, nada de esto se muestra ni se pide.
+  const puedeExportar = habilitada("cobranza_exportar");
+  // La hoja y la marca de impresion existen SOLO entre el registro exitoso y el
+  // cierre del dialogo de impresion (afterprint, tambien si se cancela): un
+  // Ctrl+P sin pasar por "Imprimir / PDF" imprime la pantalla comun, sin hoja.
+  const [hojaLista, setHojaLista] = useState(false);
+  const exportacion = useExportarCobranza(exportar, fecha, { guardarArchivo, imprimir: () => setHojaLista(true) });
+  useEffect(() => {
+    if (!hojaLista) return;
+    const cerrar = () => setHojaLista(false);
+    window.addEventListener("afterprint", cerrar);
+    window.print();
+    return () => window.removeEventListener("afterprint", cerrar);
+  }, [hojaLista]);
+  const imprimible = puedeExportar && hojaLista;
+
   const cobranzas = dia.datos?.cobranzas ?? [];
   const sapFallo = dia.datos?.errores.includes("direcciones_sap") ?? false;
   const etiqueta = etiquetaDia(fecha, hoy);
+  // Sin datos del dia (cargando o fallo) tampoco hay nada que exportar.
+  const sinCobranzas = cobranzas.length === 0;
+  const motivoDescargar = sinCobranzas ? (dia.datos ? "No hay cobranzas este día" : "Esperá a que carguen las cobranzas del día") : null;
+  // Impresa sin las direcciones de SAP, la hoja le sirve de poco al cobrador:
+  // se pide reintentar antes. La planilla si sale (el backend ya la rechaza si SAP no responde).
+  const motivoImprimir = motivoDescargar ?? (sapFallo ? "No se pudieron traer las direcciones de SAP: reintentá antes de imprimir" : null);
   // Errores de anulacion de cobranzas que ya no estan en la lista (otra persona la anulo o
   // la reprogramo y la recarga la saco): sin esto el aviso se iria junto con la tarjeta.
   const idsVisibles = new Set(cobranzas.map((c) => c.id));
@@ -62,7 +87,7 @@ export function CobranzaPage() {
   }
 
   return (
-    <div className="cobranza">
+    <div className="cobranza" data-imprimible={imprimible ? "" : undefined}>
       <header className="cobranza-encabezado">
         <div className="cobranza-dia">
           <button type="button" className="cobranza-flecha" aria-label="Día anterior" onClick={() => cambiarDia(sumarDias(fecha, -1))}>
@@ -93,6 +118,50 @@ export function CobranzaPage() {
           )}
           {enPiloto("cobranza_programada") && <BadgePiloto />}
         </div>
+        {puedeExportar && (
+          <div className="cobranza-exportar">
+            <div className="cobranza-exportar-botones">
+              <button
+                type="button"
+                className="cobranza-boton"
+                disabled={sinCobranzas || exportacion.descargando}
+                title={motivoDescargar ?? undefined}
+                onClick={() => void exportacion.descargar()}
+              >
+                {exportacion.descargando ? (
+                  <>
+                    <span className="spinner" aria-hidden /> Descargando…
+                  </>
+                ) : (
+                  "Descargar planilla"
+                )}
+              </button>
+              <button
+                type="button"
+                className="cobranza-boton"
+                disabled={sinCobranzas || sapFallo || exportacion.imprimiendo}
+                title={motivoImprimir ?? undefined}
+                onClick={() => void exportacion.imprimir()}
+              >
+                {exportacion.imprimiendo ? (
+                  <>
+                    <span className="spinner" aria-hidden /> Preparando…
+                  </>
+                ) : (
+                  "Imprimir / PDF"
+                )}
+              </button>
+            </div>
+            {sapFallo && !sinCobranzas && (
+              <p className="cobranza-exportar-nota">Para imprimir hace falta que SAP devuelva las direcciones. Reintentá.</p>
+            )}
+            {exportacion.error && (
+              <p role="alert" className="cobranza-error-campo cobranza-exportar-error">
+                {exportacion.error}
+              </p>
+            )}
+          </div>
+        )}
       </header>
 
       {dia.error && (
@@ -168,6 +237,7 @@ export function CobranzaPage() {
           ))}
         </ul>
       )}
+      {imprimible && cobranzas.length > 0 && <HojaImpresion fecha={fecha} cobranzas={cobranzas} />}
     </div>
   );
 }
@@ -402,5 +472,39 @@ function TarjetaCobranza({
         </p>
       )}
     </article>
+  );
+}
+
+// Lo que sale en papel (o en el PDF): solo lo que el cobrador necesita en la
+// calle. En pantalla esta oculta (display: none); @media print la muestra y
+// oculta todo lo demas (cobranza.css). Usa los datos que la pantalla ya tiene.
+function HojaImpresion({ fecha, cobranzas }: { fecha: string; cobranzas: CobranzaProgramada[] }) {
+  return (
+    <section className="cobranza-impresion" aria-label="Vista de impresión">
+      <header className="cobranza-impresion-encabezado">
+        <h1 className="cobranza-impresion-titulo">{tituloImpresion(fecha)}</h1>
+        <p className="cobranza-impresion-cuenta">{textoCantidad(cobranzas.length)}</p>
+      </header>
+      <ol className="cobranza-impresion-lista">
+        {cobranzas.map((c) => {
+          const importe = importeDeCobranza(c);
+          return (
+            <li key={c.id} className="cobranza-impresion-item">
+              <p className="cobranza-impresion-horario">{c.horario ?? "Sin horario"}</p>
+              <div className="cobranza-impresion-datos">
+                <p className="cobranza-impresion-cliente">
+                  <span className="cobranza-impresion-nombre">{nombreDeCobranza(c)}</span>
+                  <span className="cobranza-impresion-numero">{c.numero_sn}</span>
+                </p>
+                <p className={c.direccion.texto ? "cobranza-impresion-direccion" : "cobranza-impresion-direccion cobranza-impresion-sin-direccion"}>
+                  {c.direccion.texto ?? "Sin dirección"}
+                </p>
+              </div>
+              {importe && <p className="cobranza-impresion-importe">{importe}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }

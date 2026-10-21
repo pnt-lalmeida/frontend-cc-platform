@@ -601,3 +601,8 @@ Detalle técnico en `Architecture.md` punto 65.
 **Contexto al decidir:** en el piloto (16/10 al 20/10) **no se registró ninguna cobranza ni se editó ninguna dirección**, así que el primer uso con datos reales es el del equipo. Siguen abiertos, sin bloquear: si el cobrador entra al sistema (rol en Entra ID), si hace falta exportar o imprimir (pedido aparte, por datos personales), validar con Nicolás que POC no tenga ya una agenda, y confirmar con Claudia que "fecha de gestión" es la fecha acordada.
 
 **Reversible sin redeploy:** volver el flag a `piloto` o `off`. Las cobranzas cargadas quedan en `crm_cobranzas` y vuelven a verse al prenderlo.
+
+### 21/10/2026 — Exportar la Cobranza programada: planilla e impresión, con registro de cada descarga
+Detalle en `Architecture.md` punto 66. **Decisiones de Líber:** planilla (CSV para Excel) **y** vista para imprimir o PDF; columnas = las 5 que pidió Claudia más el importe; **registrar cada descarga e impresión** (quién, cuándo, qué día, cuántas filas; sin datos de clientes). Va detrás de un flag propio, `FEATURE_COBRANZA_EXPORTAR`, en piloto, porque exporta datos personales fuera de la plataforma: primero lo prueba Líber.
+
+**Regla que queda:** cuando una función saca datos personales de la plataforma, **la versión "formateada para salir" solo existe después de registrar la salida**. El Validador encontró que la hoja de impresión vivía oculta en la página y Ctrl+P la sacaba sin registro. Una salida que se puede tomar sin pasar por el registro no está registrada.
