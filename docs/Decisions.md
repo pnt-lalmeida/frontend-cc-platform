@@ -606,3 +606,6 @@ Detalle técnico en `Architecture.md` punto 65.
 Detalle en `Architecture.md` punto 66. **Decisiones de Líber:** planilla (CSV para Excel) **y** vista para imprimir o PDF; columnas = las 5 que pidió Claudia más el importe; **registrar cada descarga e impresión** (quién, cuándo, qué día, cuántas filas; sin datos de clientes). Va detrás de un flag propio, `FEATURE_COBRANZA_EXPORTAR`, en piloto, porque exporta datos personales fuera de la plataforma: primero lo prueba Líber.
 
 **Regla que queda:** cuando una función saca datos personales de la plataforma, **la versión "formateada para salir" solo existe después de registrar la salida**. El Validador encontró que la hoja de impresión vivía oculta en la página y Ctrl+P la sacaba sin registro. Una salida que se puede tomar sin pasar por el registro no está registrada.
+
+### 21/10/2026 — Exportar la Cobranza programada pasa a `todos`
+**Decisión de Líber:** `FEATURE_COBRANZA_EXPORTAR=todos`, el mismo día del deploy. En el piloto se probó la impresión (1 registro, 10 cobranzas) y el registro funcionó de punta a punta en producción; **la planilla CSV no llegó a probarse con datos reales desde la app** antes de liberarla (sí se verificó su formato con las 10 cobranzas reales del 22/10, en solo lectura). Reversible con el flag, sin redeploy. Cada descarga e impresión del equipo queda en `crm_exportaciones_cobranza`.
