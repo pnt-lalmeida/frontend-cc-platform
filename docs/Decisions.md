@@ -609,3 +609,10 @@ Detalle en `Architecture.md` punto 66. **Decisiones de Líber:** planilla (CSV p
 
 ### 21/10/2026 — Exportar la Cobranza programada pasa a `todos`
 **Decisión de Líber:** `FEATURE_COBRANZA_EXPORTAR=todos`, el mismo día del deploy. En el piloto se probó la impresión (1 registro, 10 cobranzas) y el registro funcionó de punta a punta en producción; **la planilla CSV no llegó a probarse con datos reales desde la app** antes de liberarla (sí se verificó su formato con las 10 cobranzas reales del 22/10, en solo lectura). Reversible con el flag, sin redeploy. Cada descarga e impresión del equipo queda en `crm_exportaciones_cobranza`.
+
+### 23/10/2026 — Forma de trabajo con MR (backend, GitLab) y PR (frontend, GitHub)
+Texto completo en la sección "Flujo de cambios" de `CLAUDE.md` (igual en los dos repos). **Decisiones de Líber:** `main` es producción y nunca se le hace push (solo mergea Líber); `development` es solo integración; cada cambio va en una rama corta en un worktree hermano, con TDD, controles completos y revisión independiente del diff; antes de crear un MR o PR nuevo se le avisa qué lleva y contra qué rama; si ya hay uno abierto de `development` a `main`, el push lo actualiza solo. Se mergea primero el backend y después el frontend. Una migración de base se aplica antes de mergear, con su OK y primero en dry-run. Después del merge se verifica el pipeline o la acción y el health de producción; si falla, se arregla en una rama nueva y no se relanza a ciegas.
+
+**Lo que ya cumplíamos:** TDD, revisión independiente, flags en `piloto` al desplegar, docs idénticos entre repos, commits en español con coautoría, backend antes que frontend, migraciones con OK previo.
+
+**Lo que NO calzaba con la plantilla, y quedó declarado:** (1) la `main` del frontend no está protegida en GitHub (la del backend sí); (2) no hay lint ni formateo en ningún repo: sumarlos es tecnología nueva y va aparte; (3) el CI de GitLab no tiene la optimización de rutas ni un único job `verificar`; (4) un commit solo de docs que llega a `main` del frontend despliega. Ninguno se cambió sin OK.
