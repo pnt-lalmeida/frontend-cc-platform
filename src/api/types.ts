@@ -335,20 +335,6 @@ export interface CobranzaProgramadaResponse {
   errores: string[];
 }
 
-export interface CobranzaDeMiDia {
-  id: number;
-  numero_sn: string | null;
-  card_code: string | null;
-  cliente_nombre: string | null;
-  horario: string | null;
-  importe: number | null;
-  moneda: string | null;
-  // Mi dia tambien los manda (los usa el backend, la pantalla no los necesita).
-  fecha_cobranza?: string;
-  registrada_por?: string;
-  registrada_utc?: string;
-}
-
 export interface CrearRecordatorioRequest {
   descripcion: string;
   fecha_objetivo: string;
@@ -560,11 +546,8 @@ export interface MiDiaResponse {
   clientes_del_dia: ClientesDelDia | null;
   tareas: TareaMiDia[] | null;
   promesas: PromesaMiDia[] | null;
-  // Solo con cobranza_programada: las programadas para hoy, o null si fallo.
-  // Sin la funcionalidad la clave no viene.
-  cobranzas?: CobranzaDeMiDia[] | null;
   alertas: { abiertas: number; no_vistas: number } | null;
   pedidos_bandeja: { pendientes: number } | null;
-  habilitadas: { promesas: boolean; alertas: boolean; cobranzas?: boolean };
+  habilitadas: { promesas: boolean; alertas: boolean };
   errores: string[];
 }

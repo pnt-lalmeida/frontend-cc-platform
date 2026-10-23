@@ -50,7 +50,7 @@ export function MiDiaPage() {
   }, [recargar, reiniciar]);
 
   const puedeRegistrar = habilitada("bitacora");
-  // Entrega 2: sin cobranza_programada Para hoy no cambia.
+  // Con cobranza_programada, "Pago coordinado" pide la fecha en el registro rapido. Para hoy NO muestra cobranzas.
   const conCobranzas = habilitada("cobranza_programada");
   const clientesDelDia = datos?.clientes_del_dia ?? null;
 
@@ -64,9 +64,9 @@ export function MiDiaPage() {
   const paraHoy = useMemo(
     () =>
       datos
-        ? armarParaHoy(datos.tareas ?? [], datos.promesas ?? [], datos.fecha, conCobranzas ? (datos.cobranzas ?? []) : [])
+        ? armarParaHoy(datos.tareas ?? [], datos.promesas ?? [], datos.fecha)
         : null,
-    [datos, conCobranzas]
+    [datos]
   );
 
   async function registrar(cardCode: string, resultado: string, nota: string, cobranza?: FormCobranza): Promise<boolean> {
@@ -133,8 +133,8 @@ export function MiDiaPage() {
           />
           {error && <ErrorBloque texto={error} onReintentar={() => void actualizar()} compacto />}
 
-          {paraHoy && (paraHoy.hayAlgo || datos.tareas === null || promesasFallaron(datos) || cobranzasFallaron(datos, conCobranzas)) && (
-            <SeccionParaHoy datos={datos} paraHoy={paraHoy} conCobranzas={conCobranzas} />
+          {paraHoy && (paraHoy.hayAlgo || datos.tareas === null || promesasFallaron(datos)) && (
+            <SeccionParaHoy datos={datos} paraHoy={paraHoy} />
           )}
 
           <SeccionClientes
@@ -176,12 +176,6 @@ export function MiDiaPage() {
 
 function promesasFallaron(datos: MiDiaResponse): boolean {
   return datos.promesas === null && datos.habilitadas.promesas;
-}
-
-// Entrega 2: la clave viene null solo si el bloque fallo en el backend (con el
-// flag prendido); sin flag no viene, y no es un fallo.
-function cobranzasFallaron(datos: MiDiaResponse, conCobranzas: boolean): boolean {
-  return conCobranzas && datos.cobranzas === null;
 }
 
 function ErrorBloque({ texto, onReintentar, compacto }: { texto: string; onReintentar: () => void; compacto?: boolean }) {
@@ -268,7 +262,7 @@ function Encabezado({
 
 /* ------------------------------------------------------------- para hoy */
 
-function SeccionParaHoy({ datos, paraHoy, conCobranzas }: { datos: MiDiaResponse; paraHoy: ParaHoy; conCobranzas: boolean }) {
+function SeccionParaHoy({ datos, paraHoy }: { datos: MiDiaResponse; paraHoy: ParaHoy }) {
   const otros = paraHoy.recordatoriosDeOtros;
   return (
     <section aria-labelledby="midia-para-hoy" className="midia-para-hoy">
@@ -285,14 +279,6 @@ function SeccionParaHoy({ datos, paraHoy, conCobranzas }: { datos: MiDiaResponse
             <ClienteDeLinea numero={p.numero} cardCode={p.cardCode} nombre={p.cliente} />
           </li>
         ))}
-        {paraHoy.cobranzas.map((c) => (
-          <li key={`c${c.id}`}>
-            <span>Cobranza coordinada: </span>
-            <strong>{c.cliente}</strong>
-            {c.horario && <span className="midia-muted"> · {c.horario}</span>}
-            <ClienteDeLinea numero={c.numero} cardCode={c.cardCode} nombre={c.cliente} />
-          </li>
-        ))}
         {paraHoy.recordatoriosMios.map((t) => (
           <li key={`t${t.id}`}>
             <span className={t.vencido ? "midia-vencido-texto" : undefined}>
@@ -307,9 +293,6 @@ function SeccionParaHoy({ datos, paraHoy, conCobranzas }: { datos: MiDiaResponse
       </ul>
       {datos.tareas === null && <p className="midia-error midia-linea">No se pudieron cargar los recordatorios.</p>}
       {promesasFallaron(datos) && <p className="midia-error midia-linea">No se pudieron cargar las promesas.</p>}
-      {cobranzasFallaron(datos, conCobranzas) && (
-        <p className="midia-error midia-linea">No se pudieron cargar las cobranzas coordinadas.</p>
-      )}
       {otros.length > 0 && (
         <details className="midia-detalle">
           <summary>

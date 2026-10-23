@@ -616,3 +616,14 @@ Texto completo en la sección "Flujo de cambios" de `CLAUDE.md` (igual en los do
 **Lo que ya cumplíamos:** TDD, revisión independiente, flags en `piloto` al desplegar, docs idénticos entre repos, commits en español con coautoría, backend antes que frontend, migraciones con OK previo.
 
 **Lo que NO calzaba con la plantilla, y quedó declarado:** (1) la `main` del frontend no está protegida en GitHub (la del backend sí); (2) no hay lint ni formateo en ningún repo: sumarlos es tecnología nueva y va aparte; (3) el CI de GitLab no tiene la optimización de rutas ni un único job `verificar`; (4) un commit solo de docs que llega a `main` del frontend despliega. Ninguno se cambió sin OK.
+
+### 23/10/2026 — La Cobranza programada sale de "Para hoy" en Mi día
+**Pedido del sector** (reportado como bug): *"Cobranza programada no debería aparecer en Mi día, solo promesas y recordatorios"*. En la Entrega 2 (15/10, `Architecture.md` punto 65) habíamos agregado a "Para hoy" una línea "Cobranza coordinada" por cada cobranza programada para hoy. **No era un bug del código sino una decisión de diseño que el sector no quiso:** el delta (ítem 2.7) decía que la fecha "alimenta el bloque Para hoy", pero lo marcaba como propuesta (`PROPOSED`), no como pedido firme.
+
+**Qué se sacó, en los dos lados:** el frontend deja de dibujar la línea, el aviso de error y los tipos del bloque; **el backend deja de leer `crm_cobranzas` en Mi día y de mandar `cobranzas` y `habilitadas.cobranzas`**. Sacar solo el dibujo habría dejado una consulta a Azure SQL por cada apertura de Mi día para algo que no se muestra.
+
+**Qué NO cambió:** el registro rápido de Mi día sigue pidiendo la fecha acordada al elegir "Pago coordinado" (con el flag), la pestaña "Cobranza programada" y la exportación. El cliente con un "Pago coordinado" sigue contando como gestionado.
+
+**Compatibilidad durante el deploy:** funciona en cualquier orden (frontend nuevo con backend viejo ignora las claves de más; backend nuevo con frontend viejo no muestra la línea ni el aviso). Igual se despliega el backend primero.
+
+**Lección de método:** el primer test del backend decía "Mi día ni siquiera consulta las cobranzas" pero hacía lanzar una excepción desde el repo de prueba, y esa lectura vivía dentro de un `except Exception` que la tragaba: **una consulta de más habría pasado sin que ningún test fallara.** El Validador lo probó reponiendo la lectura. Ahora el repo de prueba anota las llamadas y el test afirma que no hubo ninguna. **Para afirmar que algo NO se llama, no alcanza con que explote: hay que contar las llamadas, porque quien la rodea puede tragarse la excepción.**
