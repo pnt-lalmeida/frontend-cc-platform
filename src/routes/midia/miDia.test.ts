@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ClienteDelDia, CobranzaDeMiDia, PromesaMiDia, TareaMiDia } from "../../api/types";
+import type { ClienteDelDia, PromesaMiDia, TareaMiDia } from "../../api/types";
 import {
   armarParaHoy,
   armarVista,
@@ -431,36 +431,5 @@ describe("armarVista: búsqueda por nombre o número", () => {
       cliente({ card_code: "C1-2", nombre: "Casa Dos", numero_sn: "2" }),
     ];
     expect(codigos(armarVista(l, { ...opciones, soloVencido: true, busqueda: "casa" }))).toEqual(["C1-1"]);
-  });
-});
-
-describe("armarParaHoy: cobranzas coordinadas (Entrega 2)", () => {
-  const HOY = "2026-10-15";
-  const cobranza = (parcial: Partial<CobranzaDeMiDia> = {}): CobranzaDeMiDia => ({
-    id: 3,
-    numero_sn: "02928",
-    card_code: "C1-02928",
-    cliente_nombre: "Dulces del Sur",
-    horario: "14 a 16 h",
-    importe: 45000,
-    moneda: "UYU",
-    ...parcial,
-  });
-
-  it("sin el cuarto parámetro (flag apagado) no hay cobranzas y nada cambia", () => {
-    const r = armarParaHoy([], [], HOY);
-    expect(r.cobranzas).toEqual([]);
-    expect(r.hayAlgo).toBe(false);
-  });
-  it("arma el ítem con cliente, horario, número y card_code", () => {
-    const r = armarParaHoy([], [], HOY, [cobranza()]);
-    expect(r.cobranzas).toEqual([
-      { id: 3, cliente: "Dulces del Sur", horario: "14 a 16 h", numero: "02928", cardCode: "C1-02928" },
-    ]);
-    expect(r.hayAlgo).toBe(true);
-  });
-  it("sin nombre usa el card_code; sin horario queda null", () => {
-    const r = armarParaHoy([], [], HOY, [cobranza({ cliente_nombre: null, horario: null, numero_sn: null })]);
-    expect(r.cobranzas[0]).toMatchObject({ cliente: "C1-02928", horario: null, numero: "C1-02928" });
   });
 });

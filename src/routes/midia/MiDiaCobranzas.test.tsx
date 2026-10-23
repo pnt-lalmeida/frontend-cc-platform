@@ -1,12 +1,13 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CobranzaDeMiDia, MiDiaResponse, TareaMiDia } from "../../api/types";
+import type { MiDiaResponse, TareaMiDia } from "../../api/types";
 import type { FeatureNombre } from "../../features/features";
 import { MiDiaPage } from "./MiDiaPage";
 
-// Entrega 2: "Cobranza coordinada" en Para hoy, solo con cobranza_programada.
-// Sin ella (y sin la clave en la respuesta) Para hoy es el de siempre.
+// 23/10/2026, pedido del sector: "Cobranza programada no deberia aparecer en Mi dia, solo promesas y
+// recordatorios". "Para hoy" NUNCA muestra cobranzas, ni con cobranza_programada habilitada ni aunque una
+// respuesta (de un backend anterior, que todavia las mandaba) las traiga.
 
 const featuresHabilitadas = new Set<FeatureNombre>();
 const obtener = vi.fn();
@@ -43,7 +44,8 @@ function tarea(parcial: Partial<TareaMiDia> = {}): TareaMiDia {
   };
 }
 
-function cobranza(parcial: Partial<CobranzaDeMiDia> = {}): CobranzaDeMiDia {
+// Lo que mandaba el backend anterior a este cambio (el tipo ya no existe en el frontend).
+function cobranza(parcial: Record<string, unknown> = {}) {
   return {
     id: 3,
     numero_sn: "02928",
@@ -56,7 +58,7 @@ function cobranza(parcial: Partial<CobranzaDeMiDia> = {}): CobranzaDeMiDia {
   };
 }
 
-function respuesta(parcial: Partial<MiDiaResponse> = {}): MiDiaResponse {
+function respuesta(parcial: Partial<MiDiaResponse> & Record<string, unknown> = {}): MiDiaResponse {
   return {
     fecha: "2026-10-15",
     dia: "JUEVES",
@@ -111,59 +113,35 @@ describe("Mi día: Para hoy sin cobranza_programada (como hoy)", () => {
   });
 });
 
-describe("Mi día: Para hoy con cobranza_programada", () => {
+describe("Mi día: Para hoy con cobranza_programada habilitada (NO muestra cobranzas)", () => {
   beforeEach(() => {
     featuresHabilitadas.clear();
     featuresHabilitadas.add("cobranza_programada");
     obtener.mockReset();
   });
 
-  it("muestra la cobranza con cliente, horario, número y Ver ficha", async () => {
-    obtener.mockResolvedValue(respuesta({ cobranzas: [cobranza()] }));
-    await montar();
-    const seccion = await screen.findByRole("region", { name: "Para hoy" });
-    const item = within(seccion).getByText("Cobranza coordinada:").closest("li")!;
-    expect(within(item).getByText("Dulces del Sur")).toBeTruthy();
-    expect(within(item).getByText(/14 a 16 h/)).toBeTruthy();
-    expect(within(item).getByText("02928")).toBeTruthy();
-    const enlace = within(item).getByRole("link", { name: "Ver ficha de Dulces del Sur" });
-    expect(enlace.getAttribute("href")).toBe("/cliente-360?cliente=C1-02928");
-    expect(enlace.className).toBe("midia-ficha");
-  });
-
-  it("sin horario no inventa uno", async () => {
-    obtener.mockResolvedValue(respuesta({ cobranzas: [cobranza({ horario: null })] }));
-    await montar();
-    const seccion = await screen.findByRole("region", { name: "Para hoy" });
-    const item = within(seccion).getByText("Cobranza coordinada:").closest("li")!;
-    expect(item.textContent).not.toMatch(/ · /);
-  });
-
-  it("convive con los recordatorios y aparece aunque sea lo único", async () => {
+  it("aunque la respuesta traiga cobranzas, Para hoy muestra solo promesas y recordatorios", async () => {
     obtener.mockResolvedValue(respuesta({ tareas: [tarea()], cobranzas: [cobranza()] }));
     await montar();
     const seccion = await screen.findByRole("region", { name: "Para hoy" });
-    expect(within(seccion).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(seccion).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(seccion).getByText("Llamar por la factura")).toBeTruthy();
+    expect(within(seccion).queryByText(/Cobranza coordinada/)).toBeNull();
+    expect(within(seccion).queryByText("Dulces del Sur")).toBeNull();
   });
 
-  it("cobranzas vacías: la sección no aparece", async () => {
-    obtener.mockResolvedValue(respuesta({ cobranzas: [] }));
+  it("si lo unico que hay son cobranzas, la seccion Para hoy no aparece", async () => {
+    obtener.mockResolvedValue(respuesta({ cobranzas: [cobranza()] }));
     await montar();
     await waitFor(() => expect(screen.queryByText("Cargando Mi día...")).toBeNull());
     expect(screen.queryByRole("region", { name: "Para hoy" })).toBeNull();
   });
 
-  it("cobranzas null (falló): aviso como el de las promesas, y el resto de Para hoy se ve", async () => {
+  it("cobranzas null (backend que falla en leerlas) no muestra ningun aviso", async () => {
     obtener.mockResolvedValue(respuesta({ tareas: [tarea()], cobranzas: null, errores: ["cobranzas"] }));
     await montar();
     const seccion = await screen.findByRole("region", { name: "Para hoy" });
-    expect(within(seccion).getByText("No se pudieron cargar las cobranzas coordinadas.")).toBeTruthy();
     expect(within(seccion).getByText("Llamar por la factura")).toBeTruthy();
-  });
-
-  it("cobranzas null sin nada más: igual muestra el aviso", async () => {
-    obtener.mockResolvedValue(respuesta({ cobranzas: null, errores: ["cobranzas"] }));
-    await montar();
-    expect(await screen.findByText("No se pudieron cargar las cobranzas coordinadas.")).toBeTruthy();
+    expect(screen.queryByText(/No se pudieron cargar las cobranzas/)).toBeNull();
   });
 });
