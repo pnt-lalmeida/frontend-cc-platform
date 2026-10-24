@@ -646,3 +646,25 @@ Texto completo en la sección "Flujo de cambios" de `CLAUDE.md` (igual en los do
 **Primer deploy automático:** el pipeline del merge de este cambio despliega **todo lo que haya en `main` en ese momento**, incluido lo que hoy espera en el pipeline #33 (producción está en `440b20e`). Si se quiere separar riesgos, hay que darle play a #33 **antes** de mergear, no después (después GitLab lo rechaza por desactualizado). **Rollback:** reintentar un `deploy_production` exitoso anterior (GitLab lo permite en este proyecto).
 
 **Hallazgo del 23/10 que motivó la aclaración:** tras mergear el MR !1 y el PR #1, el frontend se desplegó solo pero el backend quedó esperando el clic: el frontend nuevo quedó en producción con el backend viejo hasta que se disparara el deploy. Era compatible (se verificó antes), pero no era lo acordado. La plantilla de Líber suponía que el merge despliega; el repo decía lo contrario y **no lo habíamos marcado como diferencia**.
+
+### 23/10/2026 — CI de GitLab optimizado: un solo job de controles, listas de rutas y cancelación solo en los MR
+**Decisión de Líber**, al traer la metodología de otro proyecto. Se aplica a `.gitlab-ci.yml` del backend.
+
+**Qué cambió:**
+- **Un push a `development` o a una rama de trabajo ya no crea pipeline.** Los controles corren en el MR y otra vez en `main`. Para correrlos a mano en cualquier rama: CI/CD > Pipelines > Run pipeline (en `main` también despliega).
+- **Un solo job de controles, `verificar`** (antes `test`), y **`deploy`** (antes `deploy_production`), solo en `main`. El entorno sigue llamándose `production`. **Hoy `verificar` son solo los tests:** lint y formato no están configurados todavía, porque son una herramienta nueva y el código existente tendría observaciones. Queda pendiente de decisión de Líber.
+- **Si el cambio toca solo docs o `.md`, no corre nada.** Dos consecuencias a tener presentes: si un pipeline de `main` falló y el commit siguiente es solo de docs, **de tests o del CI**, **no se vuelve a desplegar** y producción queda desactualizada con el pipeline en verde (alcanza con reintentar el job `deploy` que falló, o relanzar en `main`), y un MR solo de docs no tiene pipeline.
+- **`verificar` y `deploy` tienen listas de rutas distintas** (`.rutas-verificar` y `.rutas-deploy`). `verificar` corre si cambia código, tests, su configuración o el propio `.gitlab-ci.yml`. **`deploy` corre solo si cambia lo que se ejecuta en producción:** `function_app.py`, `host.json`, `requirements.txt`, `shared/` y `sql/`. Un cambio solo de tests o solo del CI corre los controles pero **no redeploya**. Siempre que hay deploy hay controles.
+- **Un push nuevo a un MR cancela el pipeline viejo; en `main` no se cancela nunca**, para no cortar un deploy (`workflow:rules` con `auto_cancel`, `verificar` interruptible, `deploy` no).
+
+**Cómo se detecta código en `main` sin desplegar** (lo señaló la revisión independiente): `DEPLOY_VERSION` ya no tiene por qué ser el HEAD de `main`. Debe coincidir con `git log -1 --first-parent --format=%h origin/main -- function_app.py host.json requirements.txt shared sql`. Verificado hoy: ambos dan `d88bb47`.
+
+**Si se agrega una carpeta o archivo en la raíz** que va en el paquete desplegado o que usan los tests, **hay que sumarlo a esas listas**. Si no, un cambio ahí no corre nada, y eso falla en silencio.
+
+**Resuelve una consecuencia del 23/10 ("el merge despliega"):** entonces anotamos que todo merge a `main` desplegaba, incluso uno solo de documentación. Ahora no.
+
+**Verificación:** `glab ci lint` válido, y una simulación de 17 casos con la misma lógica de rutas: push a `development` y a ramas de trabajo sin pipeline; MR solo de docs sin pipeline; MR con tests o con el CI, solo `verificar`; `main` con `shared/` o `function_app.py` o `sql/` o `requirements.txt`, `verificar` y `deploy`; `main` solo con docs, nada; "Run pipeline" en `development`, solo `verificar`, en `main`, los dos. **La prueba real es el MR que trae este cambio:** solo toca el CI y docs, así que su pipeline de MR debe correr `verificar` y, al mergear, `main` debe correr `verificar` **sin** `deploy`. Si despliega, algo está mal.
+
+**Precisión sobre la entrada anterior de hoy:** su párrafo "Primer deploy automático: despliega todo lo que haya en `main`" **dejó de ser cierto**: el CI de ese cambio llega a `main` junto con este, y su merge no despliega. Hoy no hay nada pendiente: producción está en `d88bb47`, el HEAD de `main` (pipeline #33, que disparó Líber a mano). Los deploys anteriores a este cambio se llaman `deploy_production`, y siguen siendo reintentables para un rollback.
+
+**Nota sobre la imagen de controles:** no trae `git`, así que los tests no pueden depender de él (el test que compara con el repo de Germán se saltea solo si no encuentra su carpeta). **unixODBC sí se instala en `verificar`**, porque pyodbc lo necesita para importarse.
