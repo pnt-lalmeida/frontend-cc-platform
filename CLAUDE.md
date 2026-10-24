@@ -34,7 +34,7 @@ El descubrimiento vivía antes en `Pontyn_Descubrimiento_Cuentas_Corrientes_Resu
 Reglas estables de Líber (23/10/2026). Aplican a **todo** cambio, en los dos repos.
 
 **Repos y ramas**
-- Backend: `gitlab.com/pontyn_automation/accounts_receivable/cc-platform-api`. CI de GitLab: el job `test` corre en las MR y en `main`; `deploy_production` corre **solo** en `main` cuando `test` pasa: **el merge del MR es la aprobación de Líber** (desde el 23/10/2026; antes era un clic manual). **Ojo:** que solo Líber mergee es un acuerdo de trabajo, no una restricción técnica: GitLab Free deja mergear y pushear a `main` a los 3 Maintainers (ver `Decisions.md` 23/10/2026). **Rollback:** reintentar un `deploy_production` exitoso anterior. Un push a `development` o a una rama de trabajo no crea pipeline.
+- Backend: `gitlab.com/pontyn_automation/accounts_receivable/cc-platform-api`. CI de GitLab: el job de controles `verificar` corre en los MR y en `main`, y `deploy` corre **solo** en `main` cuando `verificar` pasa: **el merge del MR es la aprobación de Líber** (desde el 23/10/2026; antes era un clic manual). **Ojo:** que solo Líber mergee es un acuerdo de trabajo, no una restricción técnica: GitLab Free deja mergear y pushear a `main` a los 3 Maintainers (ver `Decisions.md` 23/10/2026). **Rollback:** reintentar un job de deploy exitoso anterior (los previos al 23/10/2026 se llaman `deploy_production`). Detalle de cuándo corre cada job en "CI de GitLab optimizado", más abajo.
 - Frontend: `github.com/pnt-lalmeida/frontend-cc-platform`. GitHub Actions despliega **solo** al Static Web App en cada push a `main`.
 - `main` = producción. **Nunca push a `main`.** Solo Líber mergea a `main`. Las credenciales de `glab` y `gh` las carga él en su entorno: nunca pedirlas por el chat.
 - `development` es solo la rama de integración. Cada cambio va en una rama corta (`feat/<tema>`, `fix/<tema>`, `docs/<tema>`, `ci/<tema>`) creada desde `origin/development`, en un **worktree hermano** `../<repo>-<tema>` (no dentro de `.claude/`), para no pisar la carpeta principal. Nunca `git checkout` sobre trabajo sin commitear.
@@ -50,10 +50,19 @@ Reglas estables de Líber (23/10/2026). Aplican a **todo** cambio, en los dos re
 - Al crear el MR de `development` a `main`, pasar siempre `--remove-source-branch=false`: el proyecto tiene activado borrar la rama de origen al mergear y se llevaría `development`.
 
 **Después del merge: verificar y reportar**
-- Backend: el pipeline de `main` (`glab ci list`) con `test` en success. Con el deploy ya corrido por el merge (`deploy_production` arranca solo y publica): `DEPLOY_VERSION`, el historial real de deployments (ARM API) y `/api/health` en 200. Las rutas nuevas tienen que dar 401 sin token; como control, una ruta inexistente da 404. Un 404 en los primeros minutos puede ser el host arrancando.
+- Backend: el pipeline de `main` (`glab ci list`) con `verificar` en success (un merge solo de docs no crea pipeline: no hay nada que mirar). Si el merge tocó algo que se despliega, el `deploy` arranca solo y publica (si solo tocó tests, el CI o docs, **no hay deploy: es lo esperado**); en ese caso: `DEPLOY_VERSION`, el historial real de deployments (ARM API) y `/api/health` en 200. Las rutas nuevas tienen que dar 401 sin token; como control, una ruta inexistente da 404. Un 404 en los primeros minutos puede ser el host arrancando. **Ojo:** `DEPLOY_VERSION` ya no tiene por qué coincidir con el HEAD de `main` (un merge solo de tests o docs no despliega). Lo que debe coincidir es el último commit de `main` que tocó lo que se despliega: `git log -1 --first-parent --format=%h origin/main -- function_app.py host.json requirements.txt shared sql`. Si no coincide, hay código en `main` sin desplegar (un deploy que falló y un commit posterior solo de tests o docs): reintentar el job `deploy` fallido.
 - Frontend: `gh run list --branch main` hasta que termine en success, y después buscar en el bundle publicado un texto que solo exista en la versión nueva.
 - Si algo falla: leer el log del job, encontrar la causa y arreglarla en una rama nueva. No relanzar a ciegas. Caso típico: un test que pasa local y falla en el CI porque depende de algo que la imagen no tiene (`git`, librerías nativas). Si se agotaron los minutos de CI (`ci_quota_exceeded`), avisar y no reintentar.
 - Los flags nuevos quedan en `piloto` después del deploy. Pasarlos a `todos` es otra decisión, con OK de Líber.
+
+**CI de GitLab optimizado (backend)**
+- Un push a `development` o a una rama de trabajo **no crea pipeline**: los controles corren en el MR y otra vez en `main`. Para correrlos a mano en cualquier rama: CI/CD > Pipelines > Run pipeline (en `main` también despliega).
+- Hay un solo job de controles, `verificar` (hoy solo los tests: lint y formato no están configurados), y el `deploy`, solo en `main`.
+- Si el cambio toca **solo docs o archivos `.md`, no corre nada**. Eso significa que: si un pipeline de `main` falló y el siguiente commit es solo de docs, de tests o del CI, **no se vuelve a desplegar** y el pipeline de `main` queda en verde con producción desactualizada: alcanza con reintentar (**Retry**) el job `deploy` que falló, o relanzar en `main` (Run pipeline); y un MR solo de docs no tiene pipeline (no lo bloquea mientras "Pipelines must succeed" esté apagado, y hoy lo está).
+- Si el cambio toca solo tests o `.gitlab-ci.yml`, corre `verificar` pero **no** `deploy`: solo se despliega lo que cambia producción (`function_app.py`, `host.json`, `requirements.txt`, `shared/`, `sql/`).
+- Si agregás una carpeta o archivo de la raíz que va en el paquete desplegado o que usan los tests, **sumalo a las listas de rutas** (`.rutas-verificar` y `.rutas-deploy`) del `.gitlab-ci.yml`. Si no, un cambio ahí no corre nada.
+- Un push nuevo a un MR cancela el pipeline viejo. En `main` no se cancela nunca, para no cortar un deploy.
+- La imagen de controles no trae `git`: los tests no pueden depender de él. (unixODBC sí se instala en `verificar`, porque pyodbc lo necesita para importarse.)
 
 **Commits, MR y PR**
 - En español: `feat:`, `fix:`, `docs:` o `ci:` más qué cambia, y en el cuerpo el porqué. Los commits terminan con la línea de coautoría de Claude.
@@ -66,7 +75,7 @@ Reglas estables de Líber (23/10/2026). Aplican a **todo** cambio, en los dos re
 **Diferencias con la plantilla de Líber (23/10/2026), pendientes de decisión**
 1. La `main` del frontend **no está protegida** en GitHub. La del backend sí: push y merge, solo Maintainers.
 2. **No hay lint ni formateo** en ninguno de los dos repos. Sumarlos (por ejemplo `ruff` y `eslint`) es una tecnología nueva: necesita OK, y conviene hacerlo en un cambio aparte, porque el código existente va a tener observaciones.
-3. El CI de GitLab **no tiene la optimización** de la plantilla (filtros por rutas, un único job `verificar`, cancelar pipelines viejos en las MR). Hoy un commit solo de docs que llega a `main` también corre `test`.
+3. *(Resuelto el 23/10/2026.)* El CI de GitLab ya tiene la optimización de la plantilla: ver "CI de GitLab optimizado". Queda pendiente solo que `verificar` no incluye lint ni formato (punto 2).
 4. En el frontend, **un commit solo de docs que llega a `main` sí despliega**: el workflow no ignora rutas.
 - Los worktrees de **agentes** siguen en `.claude/worktrees/` (se limpian al terminar cada fase); los de **cambios** son hermanos, fuera del repo, así Vitest no los toma.
 
