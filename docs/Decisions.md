@@ -668,3 +668,12 @@ Texto completo en la sección "Flujo de cambios" de `CLAUDE.md` (igual en los do
 **Precisión sobre la entrada anterior de hoy:** su párrafo "Primer deploy automático: despliega todo lo que haya en `main`" **dejó de ser cierto**: el CI de ese cambio llega a `main` junto con este, y su merge no despliega. Hoy no hay nada pendiente: producción está en `d88bb47`, el HEAD de `main` (pipeline #33, que disparó Líber a mano). Los deploys anteriores a este cambio se llaman `deploy_production`, y siguen siendo reintentables para un rollback.
 
 **Nota sobre la imagen de controles:** no trae `git`, así que los tests no pueden depender de él (el test que compara con el repo de Germán se saltea solo si no encuentra su carpeta). **unixODBC sí se instala en `verificar`**, porque pyodbc lo necesita para importarse.
+
+### 09/11/2026 — Se incorpora a la Bandeja la excepción "Prop 10" de Germán (clientes A con 8 puntos o más)
+Detalle en `Architecture.md` punto 67. **Pedido:** Rosina reportó (#CC360 #BUG) que SAP liberaba pedidos sin intervención de Cuentas Corrientes y que en 360 seguían como pendientes de autorización. La causa fue un cambio de Germán del 03/11 (`b99e1c3`, regla `-124` de SAP): un cliente con la propiedad 10, categoría A y 8 puntos o más ya no queda retenido por deuda vencida. Nuestra consulta es una copia de la suya y no lo tenía.
+
+**Decisión:** copiar el bloque textual, como el 14/10 con el tope cédula. Va **sin flag**, porque es una corrección para ver lo mismo que SAP, pedida por el sector. **No** se aplica a Mi día: es una regla de retención de pedidos, no de cobranza. El cliente exento sigue debiendo.
+
+**Lo que cambió en el método:** el test de comparación con Germán (14/10) **sí lo detectó**, pero solo corre en la máquina de desarrollo y nadie corrió la suite entre el 03/11 y el 09/11. El aviso llegó por el sector, seis días después. Por eso se agrega un test propio del bloque, que corre también en el CI. **Ritual que se propone:** antes de cada pasada a `main`, correr la suite completa en la máquina de desarrollo (donde está el repo de Germán), o mirar el `git log` de `sap_data_access`. Si el test de comparación falla, Germán cambió algo.
+
+**Pregunta abierta para Germán:** desde cuándo está activa la `-124` en producción, cada cuánto se recalculan la categoría y el puntaje, y si puede avisarnos cuando cambie `credit_hold_orders.sql`.
